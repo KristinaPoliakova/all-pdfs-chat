@@ -147,8 +147,21 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Local uploaded files and SQLite DB (dev)
+backend/data/
+data/uploads/
+data/app.db
+*.db-wal
+*.db-shm
+
+# Sample / local PDFs (do not commit uploads or test files)
+backend/*.pdf
+
+# Secrets
 .env
+.env.*
+!**/.env.example
+backend/.env
 .envrc
 .venv
 env/
@@ -181,12 +194,12 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# PyCharm
-#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#   and can be added to the global gitignore or merged into this file.  For a more nuclear
-#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
+# IDEs
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
 
 # Abstra
 #   Abstra is an AI-powered process automation framework.
@@ -194,14 +207,14 @@ cython_debug/
 #   Learn more at https://abstra.io/docs
 .abstra/
 
-# Visual Studio Code
-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#   that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#   and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#   you could uncomment the following to ignore the entire vscode folder
-# .vscode/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
+
+# Frontend (when added)
+node_modules/
+.next/
+dist/
+build/
 
 # Ruff stuff:
 .ruff_cache/
