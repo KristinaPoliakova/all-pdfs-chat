@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import Protocol
+
+
+class FileStorage(Protocol):
+    def upload(self, path: str, data: bytes) -> str: ...
+
+    def download(self, path: str) -> bytes: ...
+
+    def delete(self, path: str) -> None: ...
+
+    def exists(self, path: str) -> bool: ...
