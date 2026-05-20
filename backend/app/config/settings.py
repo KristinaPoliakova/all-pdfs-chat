@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     azure_storage_container_name: str = "pdfs"
     cors_allowed_origins: str = ""
     log_level: str = "INFO"
+    classification_enabled: bool = True
+    classification_max_pages: int = 500
 
     @property
     def is_prod(self) -> bool:
