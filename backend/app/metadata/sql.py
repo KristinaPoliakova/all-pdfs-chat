@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -10,9 +12,11 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.classification.types import PageClassificationResult, PdfProcessingStatus
 from app.db.base import Base
 from app.metadata.protocol import PdfMetadataRecord
 from app.models.pdf_document import PdfDocument
+from app.models.pdf_page import PdfPage
 
 
 class SqlPdfMetadataStore:
@@ -39,11 +43,13 @@ class SqlPdfMetadataStore:
         filename: str,
         storage_key: str,
         size_bytes: int,
+        processing_status: PdfProcessingStatus = PdfProcessingStatus.UPLOADED,
     ) -> PdfMetadataRecord:
         document = PdfDocument(
             filename=filename,
             storage_key=storage_key,
             size_bytes=size_bytes,
+            processing_status=processing_status.value,
         )
         factory = self._get_session_factory()
         async with factory() as session:
@@ -55,6 +61,79 @@ class SqlPdfMetadataStore:
                 await session.rollback()
                 raise
         return _to_record(document)
+
+    async def set_processing_status(
+        self,
+        pdf_id: str,
+        status: PdfProcessingStatus,
+        *,
+        error: str | None = None,
+    ) -> None:
+        factory = self._get_session_factory()
+        async with factory() as session:
+            document = await session.get(PdfDocument, pdf_id)
+            if document is None:
+                raise LookupError(f"PDF document not found: {pdf_id}")
+            document.processing_status = status.value
+            document.classification_error = error
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def save_page_classifications(
+        self,
+        pdf_id: str,
+        pages: list[PageClassificationResult],
+        *,
+        page_count: int,
+        classified_at: datetime,
+    ) -> None:
+        factory = self._get_session_factory()
+        async with factory() as session:
+            document = await session.get(PdfDocument, pdf_id)
+            if document is None:
+                raise LookupError(f"PDF document not found: {pdf_id}")
+            await session.execute(
+                delete(PdfPage).where(PdfPage.pdf_document_id == pdf_id),
+            )
+            for page in pages:
+                session.add(
+                    PdfPage(
+                        pdf_document_id=pdf_id,
+                        page_number=page.page_number,
+                        page_class=page.page_class.value,
+                        confidence=page.confidence,
+                        signals_json=page.signals_json,
+                    ),
+                )
+            document.page_count = page_count
+            document.classified_at = classified_at
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def get(self, pdf_id: str) -> PdfMetadataRecord:
+        factory = self._get_session_factory()
+        async with factory() as session:
+            document = await session.get(PdfDocument, pdf_id)
+            if document is None:
+                raise LookupError(f"PDF document not found: {pdf_id}")
+        return _to_record(document)
+
+    async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]:
+        factory = self._get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(PdfPage)
+                .where(PdfPage.pdf_document_id == pdf_id)
+                .order_by(PdfPage.page_number),
+            )
+            rows = result.scalars().all()
+        return [_to_page_result(row) for row in rows]
 
     def _get_engine(self) -> AsyncEngine:
         if self._engine is None:
@@ -96,4 +175,19 @@ def _to_record(document: PdfDocument) -> PdfMetadataRecord:
         storage_key=document.storage_key,
         size_bytes=document.size_bytes,
         created_at=document.created_at,
+        processing_status=PdfProcessingStatus(document.processing_status),
+        page_count=document.page_count,
+        classification_error=document.classification_error,
+        classified_at=document.classified_at,
+    )
+
+
+def _to_page_result(page: PdfPage) -> PageClassificationResult:
+    from app.classification.types import PageClass
+
+    return PageClassificationResult(
+        page_number=page.page_number,
+        page_class=PageClass(page.page_class),
+        confidence=page.confidence,
+        signals_json=page.signals_json,
     )
