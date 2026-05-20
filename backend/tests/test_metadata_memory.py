@@ -15,7 +15,7 @@ async def test_create_returns_metadata_record() -> None:
     assert record.filename == "report.pdf"
     assert record.storage_key == "pdfs/abc-report.pdf"
     assert record.size_bytes == 42
-    assert store.get(record.id) == record
+    assert await store.get(record.id) == record
 
 
 @pytest.mark.asyncio
