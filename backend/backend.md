@@ -13,7 +13,9 @@ uv run uvicorn app.main:app --reload
 
 - API docs: http://127.0.0.1:8000/docs  
 - Health: `GET /health`, `GET /ready` (readiness for orchestrators)  
-- Upload: `POST /api/v1/pdfs` — multipart field `file` (PDF only)
+- Upload: `POST /api/v1/pdfs` — multipart field `file` (PDF only); response includes `Location: /api/v1/pdfs/{id}`
+- Read: `GET /api/v1/pdfs/{id}` — document metadata (no `pages`)
+- Read: `GET /api/v1/pdfs/{id}/pages` — per-page classification
 
 ## Config
 
@@ -52,7 +54,25 @@ app/services/pdf_upload.py   validation, size limit, orchestration
 app/api/deps.py              inject storage + metadata store
 app/api/routes/pdfs.py       POST handler
 app/models/pdf_document.py   SQLAlchemy table (used by SqlPdfMetadataStore)
+app/models/pdf_page.py       per-page classification rows
+app/classification/          page routing rules (PyMuPDF + pdfplumber features)
 ```
+
+## Page classification (PR1)
+
+- **Tables:** `pdf_documents` (+ `processing_status`, `page_count`, …), `pdf_pages` (`page_class`, `confidence`, …)
+- **Statuses:** `uploaded` → (future: `classifying`) → `classified` or `classification_failed`
+- **Page classes:** `born_digital_simple`, `born_digital_complex` (image-heavy / low-text pages → `born_digital_complex`)
+- **Deps:** `pymupdf`, `pdfplumber` only
+
+After schema changes locally, delete `data/app.db` or run against a fresh DB so `create_all` picks up new columns/tables.
+
+**Upload + classification:** `POST /api/v1/pdfs` stores the file, sets `processing_status=uploaded`, runs per-page classification (when `CLASSIFICATION_ENABLED=true`), then sets `classified` or `classification_failed`. Always returns **201**; failed classification leaves no `pdf_pages` rows.
+
+| Variable | Default | Notes |
+|----------|---------|--------|
+| `CLASSIFICATION_ENABLED` | `true` | Set `false` to skip classification (stays `uploaded`) |
+| `CLASSIFICATION_MAX_PAGES` | `500` | Rejects larger PDFs with `classification_failed` |
 
 **Do not reintroduce** `app/repositories/` or route-level `get_db_session` — metadata goes through `PdfMetadataStore`.
 
