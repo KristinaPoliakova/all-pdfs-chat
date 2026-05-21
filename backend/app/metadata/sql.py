@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-from urllib.parse import unquote
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import (
@@ -13,10 +11,14 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
+from app.core.datetime_utils import ensure_utc
 from app.db.base import Base
+from app.db.sqlite_paths import sqlite_file_path
 from app.metadata.protocol import PdfMetadataRecord
 from app.models.pdf_document import PdfDocument
 from app.models.pdf_page import PdfPage
+from app.models.pdf_page_extract import PdfPageExtract
+from app.parsing.types import PageExtract
 
 
 class SqlPdfMetadataStore:
@@ -74,8 +76,7 @@ class SqlPdfMetadataStore:
             document = await session.get(PdfDocument, pdf_id)
             if document is None:
                 raise LookupError(f"PDF document not found: {pdf_id}")
-            document.processing_status = status.value
-            document.classification_error = error
+            _apply_processing_status(document, status, error=error)
             try:
                 await session.commit()
             except Exception:
@@ -135,6 +136,45 @@ class SqlPdfMetadataStore:
             rows = result.scalars().all()
         return [_to_page_result(row) for row in rows]
 
+    async def save_page_extracts(
+        self,
+        pdf_id: str,
+        extracts: list[PageExtract],
+    ) -> None:
+        factory = self._get_session_factory()
+        async with factory() as session:
+            document = await session.get(PdfDocument, pdf_id)
+            if document is None:
+                raise LookupError(f"PDF document not found: {pdf_id}")
+            await session.execute(
+                delete(PdfPageExtract).where(PdfPageExtract.pdf_document_id == pdf_id),
+            )
+            for extract in extracts:
+                session.add(
+                    PdfPageExtract(
+                        pdf_document_id=pdf_id,
+                        page_number=extract.page_number,
+                        extractor=extract.extractor,
+                        content_text=extract.content_text,
+                    ),
+                )
+            try:
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def get_page_extracts(self, pdf_id: str) -> list[PageExtract]:
+        factory = self._get_session_factory()
+        async with factory() as session:
+            result = await session.execute(
+                select(PdfPageExtract)
+                .where(PdfPageExtract.pdf_document_id == pdf_id)
+                .order_by(PdfPageExtract.page_number),
+            )
+            rows = result.scalars().all()
+        return [_to_page_extract(row) for row in rows]
+
     def _get_engine(self) -> AsyncEngine:
         if self._engine is None:
             self._engine = create_async_engine(
@@ -155,17 +195,9 @@ class SqlPdfMetadataStore:
 
 
 def _ensure_sqlite_parent_dir(database_url: str) -> None:
-    if "sqlite" not in database_url or "///" not in database_url:
-        return
-
-    raw_path = unquote(database_url.split("///", 1)[1].split("?", 1)[0])
-    if not raw_path or raw_path == ":memory:":
-        return
-
-    db_path = Path(raw_path)
-    if not db_path.is_absolute():
-        db_path = Path.cwd() / db_path
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path = sqlite_file_path(database_url)
+    if db_path is not None:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _to_record(document: PdfDocument) -> PdfMetadataRecord:
@@ -174,11 +206,42 @@ def _to_record(document: PdfDocument) -> PdfMetadataRecord:
         filename=document.filename,
         storage_key=document.storage_key,
         size_bytes=document.size_bytes,
-        created_at=document.created_at,
+        created_at=ensure_utc(document.created_at),
         processing_status=PdfProcessingStatus(document.processing_status),
         page_count=document.page_count,
         classification_error=document.classification_error,
-        classified_at=document.classified_at,
+        classified_at=(
+            ensure_utc(document.classified_at) if document.classified_at is not None else None
+        ),
+        parsing_error=document.parsing_error,
+        parsed_at=ensure_utc(document.parsed_at) if document.parsed_at is not None else None,
+    )
+
+
+def _apply_processing_status(
+    document: PdfDocument,
+    status: PdfProcessingStatus,
+    *,
+    error: str | None,
+) -> None:
+    document.processing_status = status.value
+    if status in {
+        PdfProcessingStatus.CLASSIFYING,
+        PdfProcessingStatus.CLASSIFICATION_FAILED,
+    }:
+        document.classification_error = error
+    elif status in {PdfProcessingStatus.PARSING, PdfProcessingStatus.PARSING_FAILED}:
+        document.parsing_error = error
+    elif status == PdfProcessingStatus.PARSED:
+        document.parsed_at = datetime.now(UTC)
+        document.parsing_error = None
+
+
+def _to_page_extract(row: PdfPageExtract) -> PageExtract:
+    return PageExtract(
+        page_number=row.page_number,
+        content_text=row.content_text,
+        extractor=row.extractor,
     )
 
 
