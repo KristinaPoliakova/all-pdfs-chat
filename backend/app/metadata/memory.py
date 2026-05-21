@@ -6,12 +6,14 @@ from datetime import UTC, datetime
 
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
 from app.metadata.protocol import PdfMetadataRecord
+from app.parsing.types import PageExtract
 
 
 class InMemoryPdfMetadataStore:
     def __init__(self) -> None:
         self._records: dict[str, PdfMetadataRecord] = {}
         self._pages: dict[str, list[PageClassificationResult]] = {}
+        self._extracts: dict[str, list[PageExtract]] = {}
 
     async def init(self) -> None:
         return None
@@ -37,6 +39,8 @@ class InMemoryPdfMetadataStore:
             page_count=None,
             classification_error=None,
             classified_at=None,
+            parsing_error=None,
+            parsed_at=None,
         )
         self._records[record.id] = record
         return record
@@ -51,11 +55,7 @@ class InMemoryPdfMetadataStore:
         record = self._records.get(pdf_id)
         if record is None:
             raise LookupError(f"PDF document not found: {pdf_id}")
-        self._records[pdf_id] = replace(
-            record,
-            processing_status=status,
-            classification_error=error,
-        )
+        self._records[pdf_id] = _with_status(record, status, error=error)
 
     async def save_page_classifications(
         self,
@@ -83,3 +83,45 @@ class InMemoryPdfMetadataStore:
 
     async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]:
         return list(self._pages.get(pdf_id, []))
+
+    async def save_page_extracts(
+        self,
+        pdf_id: str,
+        extracts: list[PageExtract],
+    ) -> None:
+        if pdf_id not in self._records:
+            raise LookupError(f"PDF document not found: {pdf_id}")
+        self._extracts[pdf_id] = list(extracts)
+
+    async def get_page_extracts(self, pdf_id: str) -> list[PageExtract]:
+        return list(self._extracts.get(pdf_id, []))
+
+
+def _with_status(
+    record: PdfMetadataRecord,
+    status: PdfProcessingStatus,
+    *,
+    error: str | None,
+) -> PdfMetadataRecord:
+    classification_error = record.classification_error
+    parsing_error = record.parsing_error
+    parsed_at = record.parsed_at
+
+    if status in {
+        PdfProcessingStatus.CLASSIFYING,
+        PdfProcessingStatus.CLASSIFICATION_FAILED,
+    }:
+        classification_error = error
+    elif status in {PdfProcessingStatus.PARSING, PdfProcessingStatus.PARSING_FAILED}:
+        parsing_error = error
+    elif status == PdfProcessingStatus.PARSED:
+        parsed_at = datetime.now(UTC)
+        parsing_error = None
+
+    return replace(
+        record,
+        processing_status=status,
+        classification_error=classification_error,
+        parsing_error=parsing_error,
+        parsed_at=parsed_at,
+    )
