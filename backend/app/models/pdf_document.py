@@ -25,6 +25,8 @@ class PdfDocument(Base):
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     classification_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parsing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parsed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
