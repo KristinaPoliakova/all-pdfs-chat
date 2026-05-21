@@ -14,6 +14,9 @@ class PdfProcessingStatus(StrEnum):
     CLASSIFYING = "classifying"
     CLASSIFIED = "classified"
     CLASSIFICATION_FAILED = "classification_failed"
+    PARSING = "parsing"
+    PARSED = "parsed"
+    PARSING_FAILED = "parsing_failed"
 
 
 @dataclass(frozen=True, slots=True)
