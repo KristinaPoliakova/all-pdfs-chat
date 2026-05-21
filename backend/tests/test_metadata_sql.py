@@ -5,13 +5,10 @@ from app.metadata.sql import SqlPdfMetadataStore
 
 
 @pytest.mark.asyncio
-async def test_init_creates_parent_directory_for_sqlite_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    db_file = Path("data/app.db")
+async def test_init_creates_parent_directory_for_sqlite_file(tmp_path: Path) -> None:
+    db_file = tmp_path / "nested" / "app.db"
 
-    store = SqlPdfMetadataStore(f"sqlite+aiosqlite:///./{db_file}")
+    store = SqlPdfMetadataStore(f"sqlite+aiosqlite:///{db_file}")
     await store.init()
 
     assert db_file.is_file()

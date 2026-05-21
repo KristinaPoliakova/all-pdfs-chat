@@ -20,6 +20,7 @@ async def test_upload_pdf_returns_metadata_and_stores_file(
     api_client: AsyncClient,
     file_storage: InMemoryFileStorage,
     pdf_metadata_store: InMemoryPdfMetadataStore,
+    drain_pdf_jobs: object,
 ) -> None:
     pdf_bytes = make_text_pdf_bytes()
     response = await api_client.post(
@@ -31,17 +32,21 @@ async def test_upload_pdf_returns_metadata_and_stores_file(
     body = response.json()
     assert body["filename"] == "report.pdf"
     assert body["size_bytes"] == len(pdf_bytes)
-    assert body["processing_status"] == PdfProcessingStatus.CLASSIFIED.value
-    assert len(body["pages"]) >= 1
+    assert body["processing_status"] == PdfProcessingStatus.UPLOADED.value
+    assert "pages" not in body
     assert "storage_key" not in body
-    uuid.UUID(body["id"])
+    pdf_id = body["id"]
+    uuid.UUID(pdf_id)
 
-    record = await pdf_metadata_store.get(body["id"])
+    await drain_pdf_jobs()
+
+    record = await pdf_metadata_store.get(pdf_id)
     assert record is not None
     assert record.filename == "report.pdf"
     assert record.storage_key.startswith("pdfs/")
     assert file_storage.download(record.storage_key) == pdf_bytes
     assert record.size_bytes == len(pdf_bytes)
+    assert record.processing_status == PdfProcessingStatus.PARSED
 
 
 @pytest.mark.asyncio

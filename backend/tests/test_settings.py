@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from app.config.settings import LOCAL_STORAGE_PATH, Settings, get_settings
+from app.config.settings import _BACKEND_ROOT, LOCAL_STORAGE_PATH, Settings, get_settings
 
 
 @pytest.fixture(autouse=True)
@@ -31,8 +31,8 @@ def test_reads_values_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.azure_storage_container_name == "uploads"
 
 
-def test_local_storage_path_is_fixed() -> None:
-    assert LOCAL_STORAGE_PATH == Path("data/uploads")
+def test_local_storage_path_is_under_backend_root() -> None:
+    assert LOCAL_STORAGE_PATH == (_BACKEND_ROOT / "data" / "uploads").resolve()
 
 
 def test_defaults_to_dev(tmp_path: Path) -> None:
@@ -80,6 +80,16 @@ def test_normalizes_development_and_production_aliases() -> None:
 def test_prod_requires_azure_configuration() -> None:
     with pytest.raises(ValueError, match="AZURE_STORAGE_CONNECTION_STRING"):
         Settings(app_env="prod", azure_sql_database_url="mssql+aioodbc://x")
+
+
+def test_prod_parsing_enabled_requires_di_endpoint() -> None:
+    with pytest.raises(ValueError, match="AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"):
+        Settings(
+            app_env="prod",
+            azure_storage_connection_string="conn",
+            azure_sql_database_url="mssql+aioodbc://x",
+            parsing_enabled=True,
+        )
 
 
 def test_rejects_invalid_max_upload_size() -> None:

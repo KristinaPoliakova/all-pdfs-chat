@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.config.settings import Settings
+from app.jobs.memory import InMemoryJobQueue
 from app.services.pdf_upload import PdfUploadService
 from app.storage.memory import InMemoryFileStorage
 from fastapi import UploadFile
@@ -29,6 +30,7 @@ async def test_metadata_not_saved_when_storage_upload_fails() -> None:
         metadata_store=metadata,
         storage=storage,
         settings=settings,
+        job_queue=InMemoryJobQueue(),
     )
 
     with pytest.raises(OSError, match="disk full"):
@@ -56,6 +58,7 @@ async def test_storage_removed_when_metadata_save_fails(
         metadata_store=metadata,
         storage=storage,
         settings=settings,
+        job_queue=InMemoryJobQueue(),
     )
 
     with pytest.raises(RuntimeError, match="db unavailable"):
