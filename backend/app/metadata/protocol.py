@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Protocol
 
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
+from app.parsing.types import PageExtract
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +19,8 @@ class PdfMetadataRecord:
     page_count: int | None
     classification_error: str | None
     classified_at: datetime | None
+    parsing_error: str | None
+    parsed_at: datetime | None
 
 
 class PdfMetadataStore(Protocol):
@@ -58,3 +61,11 @@ class PdfMetadataStore(Protocol):
     async def get(self, pdf_id: str) -> PdfMetadataRecord: ...
 
     async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]: ...
+
+    async def save_page_extracts(
+        self,
+        pdf_id: str,
+        extracts: list[PageExtract],
+    ) -> None: ...
+
+    async def get_page_extracts(self, pdf_id: str) -> list[PageExtract]: ...
