@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
 from app.metadata.protocol import PdfMetadataRecord
+from app.schemas.datetime import UtcDateTime
 
 
 class PdfPageSummary(BaseModel):
@@ -22,17 +21,13 @@ class PdfDocumentResponse(BaseModel):
     id: str
     filename: str
     size_bytes: int = Field(gt=0)
-    created_at: datetime
+    created_at: UtcDateTime
     processing_status: PdfProcessingStatus
     page_count: int | None = None
     classification_error: str | None = None
-    classified_at: datetime | None = None
-
-
-class PdfUploadResponse(PdfDocumentResponse):
-    """Upload response — includes inline pages for convenience after sync classification."""
-
-    pages: list[PdfPageSummary] = Field(default_factory=list)
+    classified_at: UtcDateTime | None = None
+    parsing_error: str | None = None
+    parsed_at: UtcDateTime | None = None
 
 
 class PdfPagesResponse(BaseModel):
@@ -49,6 +44,8 @@ def document_response_from_record(record: PdfMetadataRecord) -> PdfDocumentRespo
         page_count=record.page_count,
         classification_error=record.classification_error,
         classified_at=record.classified_at,
+        parsing_error=record.parsing_error,
+        parsed_at=record.parsed_at,
     )
 
 
