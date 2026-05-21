@@ -7,9 +7,11 @@ from typing import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.db.sqlite_paths import resolve_sqlite_database_url
+
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ENV_FILE = _BACKEND_ROOT / ".env"
-LOCAL_STORAGE_PATH = Path("data/uploads")
+LOCAL_STORAGE_PATH = (_BACKEND_ROOT / "data" / "uploads").resolve()
 _MIN_UPLOAD_SIZE_BYTES = 1
 _MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024
 MAX_FILENAME_LENGTH = 255
@@ -32,6 +34,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     classification_enabled: bool = True
     classification_max_pages: int = 500
+    worker_poll_interval_seconds: float = 1.0
+    worker_lock_ttl_seconds: int = 300
+    worker_max_attempts: int = 3
+    parsing_enabled: bool = False
+    azure_document_intelligence_endpoint: str = ""
+    azure_document_intelligence_api_key: str = ""
+    parsing_poll_interval_seconds: float = 2.0
+    parsing_max_wait_seconds: int = 600
 
     @property
     def is_prod(self) -> bool:
@@ -65,12 +75,20 @@ class Settings(BaseSettings):
         if not self.is_dev and not self.is_prod:
             raise ValueError(f"Unknown APP_ENV: {self.app_env!r}. Expected dev or prod.")
 
+        if self.is_dev:
+            self.database_url = resolve_sqlite_database_url(
+                self.database_url,
+                base_dir=_BACKEND_ROOT,
+            )
+
         if self.is_prod:
             missing: list[str] = []
             if not self.azure_storage_connection_string.strip():
                 missing.append("AZURE_STORAGE_CONNECTION_STRING")
             if not self.azure_sql_database_url.strip():
                 missing.append("AZURE_SQL_DATABASE_URL")
+            if self.parsing_enabled and not self.azure_document_intelligence_endpoint.strip():
+                missing.append("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
             if missing:
                 raise ValueError(f"Required when APP_ENV=prod: {', '.join(missing)}")
 
