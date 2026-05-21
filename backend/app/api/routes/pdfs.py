@@ -7,7 +7,6 @@ from app.metadata.protocol import PdfMetadataStore
 from app.schemas.pdf import (
     PdfDocumentResponse,
     PdfPagesResponse,
-    PdfUploadResponse,
     document_response_from_record,
     page_summaries_from_results,
 )
@@ -22,27 +21,24 @@ def _pdf_location(pdf_id: str) -> str:
 
 @router.post(
     "",
-    response_model=PdfUploadResponse,
+    response_model=PdfDocumentResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_pdf(
     response: Response,
     file: UploadFile = File(...),
     service: PdfUploadService = Depends(get_pdf_upload_service),
-) -> PdfUploadResponse:
+) -> PdfDocumentResponse:
     try:
         result = await service.upload(file)
     finally:
         await file.close()
     response.headers["Location"] = _pdf_location(result.record.id)
-    document = document_response_from_record(result.record)
-    return PdfUploadResponse(
-        **document.model_dump(),
-        pages=page_summaries_from_results(result.pages),
-    )
+    return document_response_from_record(result.record)
 
 
-@router.get("/{pdf_id}", response_model=PdfDocumentResponse)
+@router.get("/{pdf_id}", response_model=PdfDocumentResponse, response_model_exclude_none=True)
 async def get_pdf(
     pdf_id: str,
     metadata_store: PdfMetadataStore = Depends(get_pdf_metadata_store),
@@ -57,7 +53,11 @@ async def get_pdf(
     return document_response_from_record(record)
 
 
-@router.get("/{pdf_id}/pages", response_model=PdfPagesResponse)
+@router.get(
+    "/{pdf_id}/pages",
+    response_model=PdfPagesResponse,
+    response_model_exclude_none=True,
+)
 async def get_pdf_pages(
     pdf_id: str,
     metadata_store: PdfMetadataStore = Depends(get_pdf_metadata_store),
