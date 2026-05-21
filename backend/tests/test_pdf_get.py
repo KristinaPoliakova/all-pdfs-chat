@@ -26,13 +26,17 @@ async def test_upload_includes_location_header(api_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_pdf_returns_document_metadata(api_client: AsyncClient) -> None:
+async def test_get_pdf_returns_document_metadata(
+    api_client: AsyncClient,
+    drain_pdf_jobs: object,
+) -> None:
     pdf_bytes = make_text_pdf_bytes(pages=2)
     upload = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", pdf_bytes, "application/pdf")},
     )
     pdf_id = upload.json()["id"]
+    await drain_pdf_jobs()
 
     response = await api_client.get(f"/api/v1/pdfs/{pdf_id}")
 
@@ -40,7 +44,7 @@ async def test_get_pdf_returns_document_metadata(api_client: AsyncClient) -> Non
     body = response.json()
     assert body["id"] == pdf_id
     assert body["filename"] == "report.pdf"
-    assert body["processing_status"] == PdfProcessingStatus.CLASSIFIED.value
+    assert body["processing_status"] == PdfProcessingStatus.PARSED.value
     assert body["page_count"] == 2
     assert "storage_key" not in body
     assert "pages" not in body
@@ -55,13 +59,17 @@ async def test_get_pdf_returns_404_for_unknown_id(api_client: AsyncClient) -> No
 
 
 @pytest.mark.asyncio
-async def test_get_pdf_pages_returns_page_classifications(api_client: AsyncClient) -> None:
+async def test_get_pdf_pages_returns_page_classifications(
+    api_client: AsyncClient,
+    drain_pdf_jobs: object,
+) -> None:
     pdf_bytes = make_text_pdf_bytes(pages=2)
     upload = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", pdf_bytes, "application/pdf")},
     )
     pdf_id = upload.json()["id"]
+    await drain_pdf_jobs()
 
     response = await api_client.get(f"/api/v1/pdfs/{pdf_id}/pages")
 
@@ -78,13 +86,17 @@ async def test_get_pdf_pages_returns_page_classifications(api_client: AsyncClien
 @pytest.mark.asyncio
 async def test_get_pdf_pages_returns_empty_when_classification_failed(
     api_client: AsyncClient,
+    drain_pdf_jobs: object,
 ) -> None:
     upload = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("broken.pdf", PDF_BYTES, "application/pdf")},
     )
     pdf_id = upload.json()["id"]
-    assert upload.json()["processing_status"] == PdfProcessingStatus.CLASSIFICATION_FAILED.value
+    await drain_pdf_jobs()
+
+    doc = await api_client.get(f"/api/v1/pdfs/{pdf_id}")
+    assert doc.json()["processing_status"] == PdfProcessingStatus.CLASSIFICATION_FAILED.value
 
     response = await api_client.get(f"/api/v1/pdfs/{pdf_id}/pages")
 

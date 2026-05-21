@@ -63,6 +63,43 @@ async def test_set_processing_status_updates_record() -> None:
 
 
 @pytest.mark.asyncio
+async def test_set_processing_status_parsing_failed_sets_parsing_error() -> None:
+    store = InMemoryPdfMetadataStore()
+    record = await store.create(
+        filename="doc.pdf",
+        storage_key="pdfs/uuid-doc.pdf",
+        size_bytes=100,
+    )
+
+    await store.set_processing_status(
+        record.id,
+        PdfProcessingStatus.PARSING_FAILED,
+        error="timeout",
+    )
+    updated = await store.get(record.id)
+
+    assert updated.processing_status == PdfProcessingStatus.PARSING_FAILED
+    assert updated.parsing_error == "timeout"
+    assert updated.classification_error is None
+
+
+@pytest.mark.asyncio
+async def test_set_processing_status_parsed_sets_parsed_at() -> None:
+    store = InMemoryPdfMetadataStore()
+    record = await store.create(
+        filename="doc.pdf",
+        storage_key="pdfs/uuid-doc.pdf",
+        size_bytes=100,
+    )
+
+    await store.set_processing_status(record.id, PdfProcessingStatus.PARSED)
+    updated = await store.get(record.id)
+
+    assert updated.processing_status == PdfProcessingStatus.PARSED
+    assert updated.parsed_at is not None
+
+
+@pytest.mark.asyncio
 async def test_save_page_classifications_persists_pages() -> None:
     store = InMemoryPdfMetadataStore()
     record = await store.create(

@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
 import pytest
-from app.config.settings import Settings
+from app.config.settings import _BACKEND_ROOT, Settings
+from app.db.sqlite_paths import sqlite_file_path
 from app.metadata.factory import create_pdf_metadata_store, reset_metadata_store_state
 from app.metadata.sql import SqlPdfMetadataStore
 
@@ -24,7 +25,7 @@ async def test_factory_uses_sqlite_url_for_dev() -> None:
     store = create_pdf_metadata_store(settings)
 
     assert isinstance(store, SqlPdfMetadataStore)
-    assert store._database_url == "sqlite+aiosqlite:///./test-dev.db"
+    assert sqlite_file_path(store._database_url) == (_BACKEND_ROOT / "test-dev.db").resolve()
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,3 @@
-from app.schemas.pdf import PdfUploadResponse
+from app.schemas.pdf import PdfDocumentResponse, PdfPagesResponse
 
-__all__ = ["PdfUploadResponse"]
+__all__ = ["PdfDocumentResponse", "PdfPagesResponse"]
