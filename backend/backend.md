@@ -62,7 +62,7 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 |----------|--------|
 | `APP_ENV` | `dev` or `prod` — picks storage + DB backends |
 | `DATABASE_URL` | Dev SQLite (default `sqlite+aiosqlite:///./data/app.db`) |
-| `AZURE_SQL_DATABASE_URL` | Prod metadata DB (required when `APP_ENV=prod`) |
+| `AZURE_SQL_CONNECTIONSTRING` | Prod metadata DB (required when `APP_ENV=prod`) |
 | `MAX_UPLOAD_SIZE_BYTES` | Default 10 MiB |
 | `AZURE_STORAGE_*` | Prod blob storage (required when `APP_ENV=prod`) |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origins; empty disables CORS |
