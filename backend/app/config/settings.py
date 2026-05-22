@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     app_env: str = "dev"
     database_url: str = "sqlite+aiosqlite:///./data/app.db"
-    azure_sql_database_url: str = ""
+    azure_sql_connectionstring: str = ""
     max_upload_size_bytes: int = 10 * 1024 * 1024
     azure_storage_connection_string: str = ""
     azure_storage_container_name: str = "pdfs"
@@ -85,8 +85,8 @@ class Settings(BaseSettings):
             missing: list[str] = []
             if not self.azure_storage_connection_string.strip():
                 missing.append("AZURE_STORAGE_CONNECTION_STRING")
-            if not self.azure_sql_database_url.strip():
-                missing.append("AZURE_SQL_DATABASE_URL")
+            if not self.azure_sql_connectionstring.strip():
+                missing.append("AZURE_SQL_CONNECTIONSTRING")
             if self.parsing_enabled and not self.azure_document_intelligence_endpoint.strip():
                 missing.append("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
             if missing:
