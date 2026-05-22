@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { ChatPanel } from '@/components/chat/ChatPanel';
 import { AppShell } from '@/components/layout/AppShell';
 import { PdfStatusCard } from '@/components/pdf/PdfStatusCard';
 import { usePdfDocument } from '@/hooks/usePdfDocument';
 import { ApiError } from '@/lib/api/errors';
+import { isChatEnabled } from '@/lib/processing-status';
 
 function StatusSkeleton() {
   return (
@@ -66,6 +68,7 @@ export default function PdfDetailPage() {
   return (
     <AppShell>
       <PdfStatusCard document={data} />
+      <ChatPanel pdfId={id} enabled={isChatEnabled(data.processing_status)} />
       <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
         Upload another PDF
       </Link>
