@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.config.settings import Settings, get_settings
+from app.db.azure_sql import resolve_prod_database_url
 from app.metadata.protocol import PdfMetadataStore
 from app.metadata.sql import SqlPdfMetadataStore
 
@@ -20,9 +21,9 @@ def create_pdf_metadata_store(settings: Settings | None = None) -> PdfMetadataSt
 
 def _database_url_for(*, cfg: Settings) -> str:
     if cfg.is_prod:
-        if not cfg.azure_sql_database_url.strip():
-            raise ValueError("AZURE_SQL_DATABASE_URL is required when APP_ENV=prod")
-        return cfg.azure_sql_database_url
+        return resolve_prod_database_url(
+            azure_sql_connectionstring=cfg.azure_sql_connectionstring,
+        )
     return cfg.database_url
 
 
