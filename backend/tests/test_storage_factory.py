@@ -20,7 +20,7 @@ def test_factory_uses_azure_for_prod_settings() -> None:
         app_env="prod",
         azure_storage_connection_string="UseDevelopmentStorage=true",
         azure_storage_container_name="pdfs",
-        azure_sql_database_url="mssql+aioodbc://user:pass@host/db",
+        azure_sql_connectionstring="Server=tcp:host,1433;Initial Catalog=db;User ID=u;Password=p;",
         _env_file=None,
     )
 

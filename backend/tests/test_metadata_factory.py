@@ -29,10 +29,12 @@ async def test_factory_uses_sqlite_url_for_dev() -> None:
 
 
 @pytest.mark.asyncio
-async def test_factory_uses_azure_sql_url_for_prod() -> None:
+async def test_factory_uses_azure_sql_connectionstring_for_prod() -> None:
     settings = Settings(
         app_env="prod",
-        azure_sql_database_url="mssql+aioodbc://user:pass@host/db",
+        azure_sql_connectionstring=(
+            "Server=tcp:host,1433;Initial Catalog=db;User ID=u;Password=p;"
+        ),
         azure_storage_connection_string="blob-conn",
         _env_file=None,
     )
@@ -40,11 +42,11 @@ async def test_factory_uses_azure_sql_url_for_prod() -> None:
     store = create_pdf_metadata_store(settings)
 
     assert isinstance(store, SqlPdfMetadataStore)
-    assert store._database_url == "mssql+aioodbc://user:pass@host/db"
+    assert store._database_url.startswith("mssql+aioodbc:///?odbc_connect=")
 
 
 def test_settings_rejects_prod_missing_azure_sql_url() -> None:
-    with pytest.raises(ValueError, match="AZURE_SQL_DATABASE_URL"):
+    with pytest.raises(ValueError, match="AZURE_SQL_CONNECTIONSTRING"):
         Settings(
             app_env="prod",
             azure_storage_connection_string="blob-conn",
