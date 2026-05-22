@@ -16,6 +16,7 @@ from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
 from tests.pdf_fixtures import make_text_pdf_bytes
+from tests.settings_helpers import make_test_settings
 
 
 @dataclass
@@ -103,7 +104,7 @@ async def test_parse_pages_returns_text_for_requested_pages() -> None:
         ),
     )
     client = _FakeDocumentIntelligenceClient(poller)
-    settings = Settings(
+    settings = make_test_settings(
         parsing_enabled=True,
         azure_document_intelligence_endpoint="https://example.cognitiveservices.azure.com",
         azure_document_intelligence_api_key="test-key",
@@ -126,7 +127,7 @@ async def test_parse_pages_returns_text_for_requested_pages() -> None:
 async def test_parse_pages_requests_only_specified_pages_from_azure() -> None:
     poller = _FakePoller(_FakeAnalyzeResult(pages=[]))
     client = _FakeDocumentIntelligenceClient(poller)
-    settings = Settings(
+    settings = make_test_settings(
         parsing_enabled=True,
         azure_document_intelligence_endpoint="https://example.cognitiveservices.azure.com",
         azure_document_intelligence_api_key="test-key",
@@ -214,7 +215,7 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
 
 
 def test_create_document_parser_without_azure_when_disabled() -> None:
-    settings = Settings(parsing_enabled=False)
+    settings = make_test_settings(parsing_enabled=False)
 
     parser = create_document_parser(settings)
 
@@ -223,7 +224,7 @@ def test_create_document_parser_without_azure_when_disabled() -> None:
 
 
 def test_create_document_parser_wires_azure_when_enabled() -> None:
-    settings = Settings(
+    settings = make_test_settings(
         parsing_enabled=True,
         azure_document_intelligence_endpoint="https://example.cognitiveservices.azure.com",
         azure_document_intelligence_api_key="test-key",

@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from app.classification.service import PdfClassificationService
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
-from app.config.settings import Settings
 from app.metadata.memory import InMemoryPdfMetadataStore
 from app.parsing.composite import CompositeDocumentParser
 from app.parsing.types import PageExtract
@@ -11,6 +10,7 @@ from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
 from tests.pdf_fixtures import make_text_pdf_bytes
+from tests.settings_helpers import make_test_settings
 
 
 class _FailingClassifier:
@@ -23,7 +23,7 @@ class _FailingClassifier:
 async def test_pipeline_classifies_pdf_and_sets_classified() -> None:
     metadata_store = InMemoryPdfMetadataStore()
     file_storage = InMemoryFileStorage()
-    settings = Settings(classification_enabled=True, parsing_enabled=False)
+    settings = make_test_settings(classification_enabled=True, parsing_enabled=False)
     data = make_text_pdf_bytes(pages=2)
     storage_key = "pdfs/test.pdf"
     file_storage.upload(storage_key, data)
@@ -52,7 +52,7 @@ async def test_pipeline_classifies_pdf_and_sets_classified() -> None:
 async def test_pipeline_extracts_simple_pages_locally() -> None:
     metadata_store = InMemoryPdfMetadataStore()
     file_storage = InMemoryFileStorage()
-    settings = Settings(classification_enabled=True, parsing_enabled=False)
+    settings = make_test_settings(classification_enabled=True, parsing_enabled=False)
     data = make_text_pdf_bytes(pages=1, text="Local extract me")
     storage_key = "pdfs/simple.pdf"
     file_storage.upload(storage_key, data)
@@ -94,7 +94,7 @@ async def test_pipeline_extracts_simple_pages_locally() -> None:
 async def test_pipeline_classification_failure_leaves_no_pages() -> None:
     metadata_store = InMemoryPdfMetadataStore()
     file_storage = InMemoryFileStorage()
-    settings = Settings(classification_enabled=True)
+    settings = make_test_settings(classification_enabled=True)
     data = make_text_pdf_bytes(pages=1)
     storage_key = "pdfs/fail.pdf"
     file_storage.upload(storage_key, data)
@@ -122,7 +122,7 @@ async def test_pipeline_classification_failure_leaves_no_pages() -> None:
 async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
     metadata_store = InMemoryPdfMetadataStore()
     file_storage = InMemoryFileStorage()
-    settings = Settings(classification_enabled=True, parsing_enabled=True)
+    settings = make_test_settings(classification_enabled=True, parsing_enabled=True)
 
     class _FakeAzure:
         async def parse_pages(
