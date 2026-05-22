@@ -8,6 +8,7 @@ export function usePdfDocument(pdfId: string) {
   return useQuery({
     queryKey: ['pdf', pdfId],
     queryFn: () => getPdf(pdfId),
+    enabled: Boolean(pdfId),
     refetchInterval: (query) => {
       const status = query.state.data?.processing_status;
       return status && isTerminal(status) ? false : 1500;
