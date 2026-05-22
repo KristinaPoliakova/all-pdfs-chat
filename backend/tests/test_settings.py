@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 from app.config.settings import _BACKEND_ROOT, LOCAL_STORAGE_PATH, Settings, get_settings
 
+_AZURE_SQL_CONN = "Server=tcp:host,1433;Initial Catalog=db;User ID=u;Password=p;"
+
 
 @pytest.fixture(autouse=True)
 def _clear_settings_cache() -> None:
@@ -22,13 +24,14 @@ def test_reads_values_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "prod")
     monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", "conn")
     monkeypatch.setenv("AZURE_STORAGE_CONTAINER_NAME", "uploads")
-    monkeypatch.setenv("AZURE_SQL_DATABASE_URL", "mssql+aioodbc://user:pass@host/db")
+    monkeypatch.setenv("AZURE_SQL_CONNECTIONSTRING", _AZURE_SQL_CONN)
 
-    settings = Settings()
+    settings = Settings(_env_file=None)
 
     assert settings.app_env == "prod"
     assert settings.azure_storage_connection_string == "conn"
     assert settings.azure_storage_container_name == "uploads"
+    assert settings.azure_sql_connectionstring.startswith("Server=tcp:host")
 
 
 def test_local_storage_path_is_under_backend_root() -> None:
@@ -51,26 +54,29 @@ def test_loads_from_dotenv_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         "APP_ENV=prod\n"
         "AZURE_STORAGE_CONNECTION_STRING=from-dotenv\n"
         "AZURE_STORAGE_CONTAINER_NAME=pdfs-prod\n"
-        "AZURE_SQL_DATABASE_URL=mssql+aioodbc://user:pass@host/db\n",
+        f"AZURE_SQL_CONNECTIONSTRING={_AZURE_SQL_CONN}\n",
         encoding="utf-8",
     )
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("AZURE_STORAGE_CONNECTION_STRING", raising=False)
     monkeypatch.delenv("AZURE_STORAGE_CONTAINER_NAME", raising=False)
+    monkeypatch.delenv("AZURE_SQL_CONNECTIONSTRING", raising=False)
 
     settings = Settings(_env_file=env_file)
 
     assert settings.is_prod is True
     assert settings.azure_storage_connection_string == "from-dotenv"
     assert settings.azure_storage_container_name == "pdfs-prod"
+    assert settings.azure_sql_connectionstring.startswith("Server=tcp:host")
 
 
 def test_normalizes_development_and_production_aliases() -> None:
-    dev = Settings(app_env="development")
+    dev = Settings(app_env="development", _env_file=None)
     prod = Settings(
         app_env="production",
         azure_storage_connection_string="conn",
-        azure_sql_database_url="mssql+aioodbc://user:pass@host/db",
+        azure_sql_connectionstring=_AZURE_SQL_CONN,
+        _env_file=None,
     )
 
     assert dev.is_dev is True
@@ -79,7 +85,11 @@ def test_normalizes_development_and_production_aliases() -> None:
 
 def test_prod_requires_azure_configuration() -> None:
     with pytest.raises(ValueError, match="AZURE_STORAGE_CONNECTION_STRING"):
-        Settings(app_env="prod", azure_sql_database_url="mssql+aioodbc://x")
+        Settings(
+            app_env="prod",
+            azure_sql_connectionstring=_AZURE_SQL_CONN,
+            _env_file=None,
+        )
 
 
 def test_prod_parsing_enabled_requires_di_endpoint() -> None:
@@ -87,8 +97,9 @@ def test_prod_parsing_enabled_requires_di_endpoint() -> None:
         Settings(
             app_env="prod",
             azure_storage_connection_string="conn",
-            azure_sql_database_url="mssql+aioodbc://x",
+            azure_sql_connectionstring=_AZURE_SQL_CONN,
             parsing_enabled=True,
+            _env_file=None,
         )
 
 
