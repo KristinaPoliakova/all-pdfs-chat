@@ -15,12 +15,26 @@ from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 from httpx import ASGITransport, AsyncClient
 
+from tests.settings_helpers import TEST_DATABASE_URL, make_test_settings
+
 
 @pytest.fixture(autouse=True)
 def _clear_settings_cache() -> None:
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep pytest off developer .env / shell prod credentials."""
+    monkeypatch.setenv("APP_ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
+    monkeypatch.setenv("AZURE_SQL_CONNECTIONSTRING", "")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", "")
+    monkeypatch.setenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "")
+    monkeypatch.setenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY", "")
+    monkeypatch.setenv("PARSING_ENABLED", "false")
 
 
 @pytest.fixture(autouse=True)
@@ -56,8 +70,21 @@ async def api_client(
     file_storage: InMemoryFileStorage,
     pdf_metadata_store: InMemoryPdfMetadataStore,
     job_queue: InMemoryJobQueue,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[AsyncClient]:
+    get_settings.cache_clear()
+
+    def _get_test_settings() -> Settings:
+        return make_test_settings()
+
+    monkeypatch.setattr("app.main.get_settings", _get_test_settings)
+    monkeypatch.setattr("app.config.settings.get_settings", _get_test_settings)
+    monkeypatch.setattr("app.metadata.factory.get_settings", _get_test_settings)
+    monkeypatch.setattr("app.jobs.factory.get_settings", _get_test_settings)
+    monkeypatch.setattr("app.storage.factory.get_settings", _get_test_settings)
+
     app = create_app()
+    app.dependency_overrides[get_settings] = _get_test_settings
     app.dependency_overrides[get_file_storage] = lambda: file_storage
     app.dependency_overrides[get_pdf_metadata_store] = lambda: pdf_metadata_store
     app.dependency_overrides[get_job_queue] = lambda: job_queue
@@ -76,7 +103,7 @@ def run_pending_pdf_jobs(
     pdf_metadata_store: InMemoryPdfMetadataStore,
     job_queue: InMemoryJobQueue,
 ) -> Callable[[], Awaitable[None]]:
-    settings = Settings(classification_enabled=True, parsing_enabled=False)
+    settings = make_test_settings(classification_enabled=True, parsing_enabled=False)
 
     async def _run() -> None:
         pipeline = PdfProcessingPipeline(

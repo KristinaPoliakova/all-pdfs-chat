@@ -105,4 +105,4 @@ def test_prod_parsing_enabled_requires_di_endpoint() -> None:
 
 def test_rejects_invalid_max_upload_size() -> None:
     with pytest.raises(ValueError, match="MAX_UPLOAD_SIZE_BYTES"):
-        Settings(max_upload_size_bytes=0)
+        Settings(max_upload_size_bytes=0, _env_file=None)
