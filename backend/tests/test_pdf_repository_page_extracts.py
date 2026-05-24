@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 
 import pytest
 from app.classification.types import PageClass, PageClassificationResult
-from app.metadata.memory import InMemoryPdfMetadataStore
-from app.metadata.sql import SqlPdfMetadataStore
+from app.db.repositories.pdf import SqlPdfRepository
 from app.parsing.types import PageExtract
+from app.pdf_repository.memory import InMemoryPdfRepository
 
 
 def _page_result(page_number: int, *, page_class: PageClass) -> PageClassificationResult:
@@ -19,7 +19,7 @@ def _page_result(page_number: int, *, page_class: PageClass) -> PageClassificati
 
 @pytest.mark.asyncio
 async def test_save_page_extracts_persists_content() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -52,7 +52,7 @@ async def test_save_page_extracts_persists_content() -> None:
 
 @pytest.mark.asyncio
 async def test_save_page_extracts_replaces_existing_rows() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -88,7 +88,7 @@ async def test_save_page_extracts_replaces_existing_rows() -> None:
 
 @pytest.mark.asyncio
 async def test_sql_store_persists_page_extracts() -> None:
-    store = SqlPdfMetadataStore("sqlite+aiosqlite:///:memory:")
+    store = SqlPdfRepository("sqlite+aiosqlite:///:memory:")
     await store.init()
     record = await store.create(
         filename="doc.pdf",

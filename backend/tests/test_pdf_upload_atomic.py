@@ -27,7 +27,7 @@ async def test_metadata_not_saved_when_storage_upload_fails() -> None:
     settings = Settings(_env_file=None)
 
     service = PdfUploadService(
-        metadata_store=metadata,
+        pdf_repository=metadata,
         storage=storage,
         settings=settings,
         job_queue=InMemoryJobQueue(),
@@ -55,7 +55,7 @@ async def test_storage_removed_when_metadata_save_fails(
     settings = Settings(_env_file=None)
 
     service = PdfUploadService(
-        metadata_store=metadata,
+        pdf_repository=metadata,
         storage=storage,
         settings=settings,
         job_queue=InMemoryJobQueue(),

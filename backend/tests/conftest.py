@@ -1,15 +1,15 @@
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 import pytest
-from app.api.deps import get_file_storage, get_job_queue, get_pdf_metadata_store
+from app.api.deps import get_file_storage, get_job_queue, get_pdf_repository
 from app.classification.service import PdfClassificationService
 from app.config.settings import Settings, get_settings
 from app.jobs.factory import reset_job_queue_state
 from app.jobs.memory import InMemoryJobQueue
 from app.main import create_app
-from app.metadata.factory import reset_metadata_store_state
-from app.metadata.memory import InMemoryPdfMetadataStore
 from app.parsing.composite import CompositeDocumentParser
+from app.pdf_repository.factory import reset_pdf_repository_state
+from app.pdf_repository.memory import InMemoryPdfRepository
 from app.storage.factory import reset_file_storage_state
 from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
@@ -38,12 +38,12 @@ def _isolate_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-async def _reset_metadata_factory() -> None:
-    await reset_metadata_store_state()
+async def _reset_pdf_repository_factory() -> None:
+    await reset_pdf_repository_state()
     await reset_job_queue_state()
     reset_file_storage_state()
     yield
-    await reset_metadata_store_state()
+    await reset_pdf_repository_state()
     await reset_job_queue_state()
     reset_file_storage_state()
 
@@ -60,15 +60,15 @@ def job_queue() -> InMemoryJobQueue:
 
 
 @pytest.fixture
-def pdf_metadata_store() -> InMemoryPdfMetadataStore:
-    """In-memory metadata store for tests — not wired through create_pdf_metadata_store()."""
-    return InMemoryPdfMetadataStore()
+def pdf_repository() -> InMemoryPdfRepository:
+    """In-memory pdf store for tests — not wired through create_pdf_repository()."""
+    return InMemoryPdfRepository()
 
 
 @pytest.fixture
 async def api_client(
     file_storage: InMemoryFileStorage,
-    pdf_metadata_store: InMemoryPdfMetadataStore,
+    pdf_repository: InMemoryPdfRepository,
     job_queue: InMemoryJobQueue,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[AsyncClient]:
@@ -79,14 +79,14 @@ async def api_client(
 
     monkeypatch.setattr("app.main.get_settings", _get_test_settings)
     monkeypatch.setattr("app.config.settings.get_settings", _get_test_settings)
-    monkeypatch.setattr("app.metadata.factory.get_settings", _get_test_settings)
+    monkeypatch.setattr("app.pdf_repository.factory.get_settings", _get_test_settings)
     monkeypatch.setattr("app.jobs.factory.get_settings", _get_test_settings)
     monkeypatch.setattr("app.storage.factory.get_settings", _get_test_settings)
 
     app = create_app()
     app.dependency_overrides[get_settings] = _get_test_settings
     app.dependency_overrides[get_file_storage] = lambda: file_storage
-    app.dependency_overrides[get_pdf_metadata_store] = lambda: pdf_metadata_store
+    app.dependency_overrides[get_pdf_repository] = lambda: pdf_repository
     app.dependency_overrides[get_job_queue] = lambda: job_queue
 
     async with app.router.lifespan_context(app):
@@ -100,14 +100,14 @@ async def api_client(
 @pytest.fixture
 def run_pending_pdf_jobs(
     file_storage: InMemoryFileStorage,
-    pdf_metadata_store: InMemoryPdfMetadataStore,
+    pdf_repository: InMemoryPdfRepository,
     job_queue: InMemoryJobQueue,
 ) -> Callable[[], Awaitable[None]]:
     settings = make_test_settings(classification_enabled=True, parsing_enabled=False)
 
     async def _run() -> None:
         pipeline = PdfProcessingPipeline(
-            metadata_store=pdf_metadata_store,
+            pdf_repository=pdf_repository,
             storage=file_storage,
             settings=settings,
             classifier=PdfClassificationService(settings=settings),

@@ -11,8 +11,8 @@ from app.config.settings import get_settings
 from app.core.logging import configure_logging
 from app.db.sqlite_paths import ensure_sqlite_writable
 from app.jobs.factory import create_job_queue, reset_job_queue_state
-from app.metadata.factory import create_pdf_metadata_store, reset_metadata_store_state
 from app.parsing.factory import create_document_parser
+from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
 from app.storage.factory import create_file_storage, reset_file_storage_state
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
@@ -26,15 +26,15 @@ async def run_worker() -> None:
     if settings.is_dev:
         ensure_sqlite_writable(settings.database_url)
 
-    metadata_store = create_pdf_metadata_store()
-    await metadata_store.init()
+    pdf_repository = create_pdf_repository()
+    await pdf_repository.init()
     job_queue = create_job_queue()
     await job_queue.init()
     storage = create_file_storage()
     classifier = PdfClassificationService(settings=settings)
     parser = create_document_parser(settings)
     pipeline = PdfProcessingPipeline(
-        metadata_store=metadata_store,
+        pdf_repository=pdf_repository,
         storage=storage,
         settings=settings,
         classifier=classifier,
@@ -93,7 +93,7 @@ async def run_worker() -> None:
     finally:
         await job_queue.close()
         await reset_job_queue_state()
-        await reset_metadata_store_state()
+        await reset_pdf_repository_state()
         reset_file_storage_state()
         logger.info("PDF worker stopped id=%s", worker_id)
 

@@ -7,13 +7,13 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    create_async_engine,
 )
 
 from app.db.base import Base
+from app.db.engine import create_app_async_engine
+from app.db.models.pdf_job import PdfJob
 from app.db.sqlite_paths import sqlite_file_path
 from app.jobs.protocol import JobStatus, PdfJobRecord
-from app.models.pdf_job import PdfJob
 
 
 class SqlJobQueue:
@@ -167,11 +167,7 @@ class SqlJobQueue:
 
     def _get_engine(self) -> AsyncEngine:
         if self._engine is None:
-            self._engine = create_async_engine(
-                self._database_url,
-                echo=False,
-                pool_pre_ping=True,
-            )
+            self._engine = create_app_async_engine(self._database_url)
         return self._engine
 
     def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:

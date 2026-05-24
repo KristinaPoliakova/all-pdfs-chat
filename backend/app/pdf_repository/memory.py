@@ -5,13 +5,13 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
-from app.metadata.protocol import PdfMetadataRecord
 from app.parsing.types import PageExtract
+from app.pdf_repository.protocol import PdfRecord
 
 
-class InMemoryPdfMetadataStore:
+class InMemoryPdfRepository:
     def __init__(self) -> None:
-        self._records: dict[str, PdfMetadataRecord] = {}
+        self._records: dict[str, PdfRecord] = {}
         self._pages: dict[str, list[PageClassificationResult]] = {}
         self._extracts: dict[str, list[PageExtract]] = {}
 
@@ -28,8 +28,8 @@ class InMemoryPdfMetadataStore:
         storage_key: str,
         size_bytes: int,
         processing_status: PdfProcessingStatus = PdfProcessingStatus.UPLOADED,
-    ) -> PdfMetadataRecord:
-        record = PdfMetadataRecord(
+    ) -> PdfRecord:
+        record = PdfRecord(
             id=str(uuid.uuid4()),
             filename=filename,
             storage_key=storage_key,
@@ -75,7 +75,7 @@ class InMemoryPdfMetadataStore:
             classified_at=classified_at,
         )
 
-    async def get(self, pdf_id: str) -> PdfMetadataRecord:
+    async def get(self, pdf_id: str) -> PdfRecord:
         record = self._records.get(pdf_id)
         if record is None:
             raise LookupError(f"PDF document not found: {pdf_id}")
@@ -98,11 +98,11 @@ class InMemoryPdfMetadataStore:
 
 
 def _with_status(
-    record: PdfMetadataRecord,
+    record: PdfRecord,
     status: PdfProcessingStatus,
     *,
     error: str | None,
-) -> PdfMetadataRecord:
+) -> PdfRecord:
     classification_error = record.classification_error
     parsing_error = record.parsing_error
     parsed_at = record.parsed_at

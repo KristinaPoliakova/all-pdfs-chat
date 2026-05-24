@@ -2,20 +2,69 @@
 
 Python **3.14**, **`uv`**, async **FastAPI**, **pytest** + **httpx** for API tests.
 
+## Project layout
+
+Persistence is split into **three ports**. Each port has a protocol, in-memory test doubles, a factory, and (where applicable) a SQL implementation under `app/db/`.
+
+| Port | Holds | Package | SQL implementation |
+|------|-------|---------|-------------------|
+| `FileStorage` | Raw PDF bytes | `app/storage/` | — (disk or Azure Blob) |
+| `PdfRepository` | Document rows, page classifications, text extracts | `app/pdf_repository/` | `app/db/repositories/pdf.py` → `SqlPdfRepository` |
+| `JobQueue` | Background job rows | `app/jobs/` | `app/db/repositories/jobs.py` → `SqlJobQueue` |
+
+```
+app/
+├── storage/                 # FileStorage — blob bytes (local disk / Azure Blob)
+├── pdf_repository/          # PdfRepository port — protocol, InMemoryPdfRepository, factory
+├── jobs/                    # JobQueue port — protocol, InMemoryJobQueue, factory
+├── db/                      # Everything SQL-specific
+│   ├── base.py              # SQLAlchemy DeclarativeBase
+│   ├── engine.py            # Async engine factory
+│   ├── database_url.py      # Dev/prod DATABASE_URL resolution
+│   ├── azure_sql.py         # Azure connection string → SQLAlchemy URL
+│   ├── sqlite_paths.py      # SQLite path helpers
+│   ├── startup_errors.py    # Friendly DB startup error messages
+│   ├── models/              # ORM table definitions
+│   │   ├── pdf_document.py
+│   │   ├── pdf_page.py
+│   │   ├── pdf_page_extract.py
+│   │   └── pdf_job.py
+│   └── repositories/
+│       ├── pdf.py           # SqlPdfRepository
+│       └── jobs.py          # SqlJobQueue
+├── api/                     # Routes + FastAPI dependencies
+├── services/                # Upload orchestration
+├── worker/                  # Job poll loop + processing pipeline
+├── parsing/                 # Document parsers (PyMuPDF, Azure DI)
+├── classification/          # Page classification rules
+├── config/                  # Settings (`get_settings()` singleton)
+├── core/                    # Logging, exceptions, shared utils
+└── schemas/                 # Pydantic request/response models
+```
+
+### How the layers connect
+
+- **API, worker, and services** depend on ports only: `FileStorage`, `PdfRepository`, `JobQueue`.
+- **Factories** (`create_file_storage`, `create_pdf_repository`, `create_job_queue`) wire dev/prod backends. In tests, FastAPI `dependency_overrides` inject in-memory fakes instead.
+- **`app/db/`** is the SQL stack: ORM models, engine, and SQL repository classes. Nothing outside factories/tests should import `SqlPdfRepository` or `SqlJobQueue` directly.
+- **Upload** writes to two backends: bytes → `FileStorage`, document row → `PdfRepository`. The worker reads bytes from storage and writes classification/parsing results to the repository.
+
+Handlers and services do not use raw SQLAlchemy sessions — all SQL access goes through `PdfRepository` or `JobQueue`.
+
 ## Architecture (async upload)
 
 Upload and processing are **split**:
 
-1. **API** — stores PDF bytes + metadata, enqueues one `process_pdf` job, returns **201 immediately** (`processing_status=uploaded`).
-2. **Worker** — separate process claims jobs, runs classify → parse, updates the DB.
+1. **API** — stores PDF bytes + document row, enqueues one `process_pdf` job, returns **201 immediately** (`processing_status=uploaded`).
+2. **Worker** — separate process claims jobs, runs classify → parse, updates rows via `PdfRepository`.
 
 ```
-Client  →  POST /api/v1/pdfs  →  API (store + enqueue)  →  201
-Client  →  GET /api/v1/pdfs/{id}  ←  DB status (poll)
-Worker  →  claim job  →  classify  →  parse  →  update DB
+Client  →  POST /api/v1/pdfs  →  API (FileStorage + PdfRepository + enqueue)  →  201
+Client  →  GET /api/v1/pdfs/{id}  ←  PdfRepository (poll status)
+Worker  →  claim job  →  classify  →  parse  →  PdfRepository
 ```
 
-**Both processes must run in dev.** 
+**Both processes must run in dev.**
 
 ## Run locally
 
@@ -27,7 +76,7 @@ uv run uvicorn app.main:app --reload    # terminal 1 — API
 uv run python -m app.worker             # terminal 2 — background processing
 ```
 
-- API docs: http://127.0.0.1:8000/docs  
+- API docs: http://127.0.0.1:8000/docs
 - Health: `GET /health`, `GET /ready` (readiness for orchestrators)
 
 ### API endpoints
@@ -35,10 +84,10 @@ uv run python -m app.worker             # terminal 2 — background processing
 | Method | Path | Purpose |
 |--------|------|---------|
 | `POST` | `/api/v1/pdfs` | Upload PDF (multipart field `file`). **201** + `Location: /api/v1/pdfs/{id}` |
-| `GET` | `/api/v1/pdfs/{id}` | Document metadata + **`processing_status`** |
+| `GET` | `/api/v1/pdfs/{id}` | Document record + **`processing_status`** |
 | `GET` | `/api/v1/pdfs/{id}/pages` | Per-page classification (empty until worker runs) |
 
-**Upload response:** `PdfDocumentResponse` 
+**Upload response:** `PdfDocumentResponse`
 
 ## Client / frontend integration
 
@@ -47,7 +96,7 @@ There is **no** server-side “wait until ready” or push (WebSocket/SSE). Prog
 1. `POST` upload → get `id`.
 2. Poll `GET /api/v1/pdfs/{id}` every 1–2s until `processing_status` reaches the state you need.
 3. When classified (or later): `GET /api/v1/pdfs/{id}/pages` for page classes.
-4. When `parsed`: text extracts are in DB (no GET endpoint yet); safe to enable chat/RAG.
+4. When `parsed`: text extracts are in the database (no GET endpoint yet); safe to enable chat/RAG.
 
 Typical terminal statuses: `classified`, `parsed`, `classification_failed`, `parsing_failed`.
 
@@ -62,34 +111,33 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 |----------|--------|
 | `APP_ENV` | `dev` or `prod` — picks storage + DB backends |
 | `DATABASE_URL` | Dev SQLite (default `sqlite+aiosqlite:///./data/app.db`) |
-| `AZURE_SQL_CONNECTIONSTRING` | Prod metadata DB (required when `APP_ENV=prod`) |
+| `AZURE_SQL_CONNECTIONSTRING` | Prod SQL database (required when `APP_ENV=prod`) |
 | `MAX_UPLOAD_SIZE_BYTES` | Default 10 MiB |
 | `AZURE_STORAGE_*` | Prod blob storage (required when `APP_ENV=prod`) |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origins; empty disables CORS |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR` (default `INFO`) |
 
-
 ## `APP_ENV` wiring
 
 | | `dev` | `prod` |
 |---|--------|--------|
-| PDF bytes | `app/storage/` → disk | Azure Blob |
-| Metadata + jobs | `app/metadata/` + `app/jobs/` → SQLite | Azure SQL |
+| PDF bytes (`FileStorage`) | Local disk | Azure Blob |
+| PDF rows + jobs (`PdfRepository`, `JobQueue`) | SQLite via `SqlPdfRepository` / `SqlJobQueue` | Azure SQL |
 
-- `create_file_storage()`, `create_pdf_metadata_store()`, and `create_job_queue()` are **singletons** per process.
-- **Job queue:** always `SqlJobQueue` in dev/prod (same DB URL as metadata). Tests use `InMemoryJobQueue` via FastAPI overrides in `tests/conftest.py`.
+- `create_file_storage()`, `create_pdf_repository()`, and `create_job_queue()` are **singletons** per process.
+- `PdfRepository` and `JobQueue` share the same database URL in dev/prod.
 - **Prod SQL driver:** `uv sync --group prod` installs `aioodbc` for `mssql+aioodbc://` URLs.
-- **Tests:** in-memory fakes only via `dependency_overrides` — never in `.env`.
+- **Tests:** in-memory fakes via `dependency_overrides` in `tests/conftest.py` — never configured in `.env`.
 
 ## Processing pipeline
 
 **Statuses:** `uploaded` → `classifying` → `classified` → `parsing` → `parsed` (or `classification_failed` / `parsing_failed`)
 
 **Phase 1 — Classify** (when `CLASSIFICATION_ENABLED=true`):
-- PyMuPDF + pdfplumber → `pdf_pages` (`born_digital_simple` / `born_digital_complex`)
+- PyMuPDF + pdfplumber → `pdf_pages` table (`born_digital_simple` / `born_digital_complex`)
 
 **Phase 2 — Parse:**
-- `born_digital_simple` → local PyMuPDF text extract → `pdf_page_extracts`
+- `born_digital_simple` → local PyMuPDF text extract → `pdf_page_extracts` table
 - `born_digital_complex` → Azure Document Intelligence (`prebuilt-read`) when `PARSING_ENABLED=true` and endpoint configured
 
 When `PARSING_ENABLED=false`, complex pages are skipped (simple pages still extracted if classified).
@@ -109,24 +157,6 @@ When `PARSING_ENABLED=false`, complex pages are skipped (simple pages still extr
 | `PARSING_POLL_INTERVAL_SECONDS` | `2` | Azure DI poll interval |
 | `PARSING_MAX_WAIT_SECONDS` | `600` | Azure DI operation timeout |
 
-## Code map
-
-```
-app/storage/          FileStorage protocol + local / azure / memory (tests)
-app/metadata/           PdfMetadataStore protocol + sql / memory (tests)
-app/jobs/               JobQueue protocol + sql / memory (tests)
-app/worker/             Worker poll loop + PdfProcessingPipeline
-app/parsing/            CompositeDocumentParser + AzureDocumentIntelligenceParser + factory
-app/services/pdf_upload.py   validation, size limit, orchestration, enqueue
-app/api/deps.py         inject storage + metadata store + job queue
-app/api/routes/pdfs.py  POST + GET handlers
-app/db/sqlite_paths.py  Resolve absolute SQLite paths, writable check
-app/models/             pdf_document, pdf_page, pdf_page_extract, pdf_job
-app/classification/     page routing rules (PyMuPDF + pdfplumber features)
-```
-
-**Do not reintroduce** `app/repositories/` or route-level `get_db_session` — metadata goes through `PdfMetadataStore`.
-
 ## Worker logging
 
 Minimal by design:
@@ -139,10 +169,10 @@ Use `LOG_LEVEL=DEBUG` for more detail.
 
 ## Startup vs upload
 
-- **Startup:** `init()` on metadata store + job queue creates SQL tables (`data/app.db`).
+- **Startup:** `PdfRepository.init()` and `JobQueue.init()` create SQL tables in `data/app.db` (dev).
 - **First upload:** creates `data/uploads/pdfs/...` on disk (no prep step for file storage).
 
-After schema changes locally, delete `data/app.db` (and `-wal`/`-shm` if present) and restart **both** API and worker.
+After local schema changes, delete `data/app.db` (and `-wal`/`-shm` if present) and restart **both** API and worker.
 
 ## Pre-commit (Ruff on every commit)
 

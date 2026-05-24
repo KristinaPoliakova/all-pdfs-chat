@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
-from app.metadata.protocol import PdfMetadataRecord
+from app.pdf_repository.protocol import PdfRecord
 from app.schemas.datetime import UtcDateTime
 
 
@@ -34,7 +34,7 @@ class PdfPagesResponse(BaseModel):
     pages: list[PdfPageSummary]
 
 
-def document_response_from_record(record: PdfMetadataRecord) -> PdfDocumentResponse:
+def document_response_from_record(record: PdfRecord) -> PdfDocumentResponse:
     return PdfDocumentResponse(
         id=record.id,
         filename=record.filename,

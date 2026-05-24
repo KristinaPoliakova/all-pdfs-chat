@@ -6,7 +6,7 @@ from app.db.azure_sql import (
     azure_sql_connectionstring_to_database_url,
     resolve_prod_database_url,
 )
-from app.metadata.factory import create_pdf_metadata_store, reset_metadata_store_state
+from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
 
 
 @pytest.fixture(autouse=True)
@@ -17,10 +17,10 @@ def _clear_settings_cache() -> None:
 
 
 @pytest.fixture(autouse=True)
-async def _reset_metadata_factory() -> None:
-    await reset_metadata_store_state()
+async def _reset_pdf_repository_factory() -> None:
+    await reset_pdf_repository_state()
     yield
-    await reset_metadata_store_state()
+    await reset_pdf_repository_state()
 
 
 def test_connectionstring_converts_to_odbc_connect_url() -> None:
@@ -39,6 +39,9 @@ def test_connectionstring_converts_to_odbc_connect_url() -> None:
     assert "Driver={ODBC Driver 18 for SQL Server};" in odbc
     assert "Server=tcp:myserver.database.windows.net,1433;" in odbc
     assert "Initial Catalog=mydb;" in odbc
+    assert "LoginTimeout=60" in odbc
+    assert "Connection Timeout=60" in odbc
+    assert "HostNameInCertificate=*.database.windows.net" in odbc
 
 
 def test_connectionstring_normalizes_sql_auth_keys_for_pyodbc() -> None:
@@ -105,6 +108,6 @@ async def test_factory_uses_connectionstring_for_prod() -> None:
         _env_file=None,
     )
 
-    store = create_pdf_metadata_store(settings)
+    store = create_pdf_repository(settings)
 
     assert store._database_url.startswith("mssql+aioodbc:///?odbc_connect=")

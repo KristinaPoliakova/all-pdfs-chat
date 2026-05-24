@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from app.classification.service import PdfClassificationService
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
-from app.metadata.memory import InMemoryPdfMetadataStore
 from app.parsing.composite import CompositeDocumentParser
 from app.parsing.types import PageExtract
+from app.pdf_repository.memory import InMemoryPdfRepository
 from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
@@ -21,19 +21,19 @@ class _FailingClassifier:
 
 @pytest.mark.asyncio
 async def test_pipeline_classifies_pdf_and_sets_classified() -> None:
-    metadata_store = InMemoryPdfMetadataStore()
+    pdf_repository = InMemoryPdfRepository()
     file_storage = InMemoryFileStorage()
     settings = make_test_settings(classification_enabled=True, parsing_enabled=False)
     data = make_text_pdf_bytes(pages=2)
     storage_key = "pdfs/test.pdf"
     file_storage.upload(storage_key, data)
-    record = await metadata_store.create(
+    record = await pdf_repository.create(
         filename="t.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
     )
     pipeline = PdfProcessingPipeline(
-        metadata_store=metadata_store,
+        pdf_repository=pdf_repository,
         storage=file_storage,
         settings=settings,
         classifier=PdfClassificationService(settings=settings),
@@ -42,26 +42,26 @@ async def test_pipeline_classifies_pdf_and_sets_classified() -> None:
 
     await pipeline.run(record.id)
 
-    updated = await metadata_store.get(record.id)
+    updated = await pdf_repository.get(record.id)
     assert updated.processing_status == PdfProcessingStatus.PARSED
-    pages = await metadata_store.get_pages(record.id)
+    pages = await pdf_repository.get_pages(record.id)
     assert len(pages) == 2
 
 
 @pytest.mark.asyncio
 async def test_pipeline_extracts_simple_pages_locally() -> None:
-    metadata_store = InMemoryPdfMetadataStore()
+    pdf_repository = InMemoryPdfRepository()
     file_storage = InMemoryFileStorage()
     settings = make_test_settings(classification_enabled=True, parsing_enabled=False)
     data = make_text_pdf_bytes(pages=1, text="Local extract me")
     storage_key = "pdfs/simple.pdf"
     file_storage.upload(storage_key, data)
-    record = await metadata_store.create(
+    record = await pdf_repository.create(
         filename="simple.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
     )
-    await metadata_store.save_page_classifications(
+    await pdf_repository.save_page_classifications(
         record.id,
         [
             PageClassificationResult(
@@ -73,9 +73,9 @@ async def test_pipeline_extracts_simple_pages_locally() -> None:
         page_count=1,
         classified_at=record.created_at,
     )
-    await metadata_store.set_processing_status(record.id, PdfProcessingStatus.CLASSIFIED)
+    await pdf_repository.set_processing_status(record.id, PdfProcessingStatus.CLASSIFIED)
     pipeline = PdfProcessingPipeline(
-        metadata_store=metadata_store,
+        pdf_repository=pdf_repository,
         storage=file_storage,
         settings=settings,
         classifier=PdfClassificationService(settings=settings),
@@ -84,7 +84,7 @@ async def test_pipeline_extracts_simple_pages_locally() -> None:
 
     await pipeline._phase_parse(record.id, data)
 
-    extracts = await metadata_store.get_page_extracts(record.id)
+    extracts = await pdf_repository.get_page_extracts(record.id)
     assert len(extracts) == 1
     assert extracts[0].extractor == "local_pymupdf"
     assert "Local extract me" in extracts[0].content_text
@@ -92,19 +92,19 @@ async def test_pipeline_extracts_simple_pages_locally() -> None:
 
 @pytest.mark.asyncio
 async def test_pipeline_classification_failure_leaves_no_pages() -> None:
-    metadata_store = InMemoryPdfMetadataStore()
+    pdf_repository = InMemoryPdfRepository()
     file_storage = InMemoryFileStorage()
     settings = make_test_settings(classification_enabled=True)
     data = make_text_pdf_bytes(pages=1)
     storage_key = "pdfs/fail.pdf"
     file_storage.upload(storage_key, data)
-    record = await metadata_store.create(
+    record = await pdf_repository.create(
         filename="fail.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
     )
     pipeline = PdfProcessingPipeline(
-        metadata_store=metadata_store,
+        pdf_repository=pdf_repository,
         storage=file_storage,
         settings=settings,
         classifier=_FailingClassifier(),  # type: ignore[arg-type]
@@ -113,14 +113,14 @@ async def test_pipeline_classification_failure_leaves_no_pages() -> None:
 
     await pipeline.run(record.id)
 
-    updated = await metadata_store.get(record.id)
+    updated = await pdf_repository.get(record.id)
     assert updated.processing_status == PdfProcessingStatus.CLASSIFICATION_FAILED
-    assert await metadata_store.get_pages(record.id) == []
+    assert await pdf_repository.get_pages(record.id) == []
 
 
 @pytest.mark.asyncio
 async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
-    metadata_store = InMemoryPdfMetadataStore()
+    pdf_repository = InMemoryPdfRepository()
     file_storage = InMemoryFileStorage()
     settings = make_test_settings(classification_enabled=True, parsing_enabled=True)
 
@@ -143,12 +143,12 @@ async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
     data = make_text_pdf_bytes(pages=2)
     storage_key = "pdfs/complex.pdf"
     file_storage.upload(storage_key, data)
-    record = await metadata_store.create(
+    record = await pdf_repository.create(
         filename="complex.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
     )
-    await metadata_store.save_page_classifications(
+    await pdf_repository.save_page_classifications(
         record.id,
         [
             PageClassificationResult(
@@ -165,10 +165,10 @@ async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
         page_count=2,
         classified_at=record.created_at,
     )
-    await metadata_store.set_processing_status(record.id, PdfProcessingStatus.CLASSIFIED)
+    await pdf_repository.set_processing_status(record.id, PdfProcessingStatus.CLASSIFIED)
 
     pipeline = PdfProcessingPipeline(
-        metadata_store=metadata_store,
+        pdf_repository=pdf_repository,
         storage=file_storage,
         settings=settings,
         classifier=PdfClassificationService(settings=settings),
@@ -177,7 +177,7 @@ async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
 
     await pipeline._phase_parse(record.id, data)
 
-    extracts = await metadata_store.get_page_extracts(record.id)
+    extracts = await pdf_repository.get_page_extracts(record.id)
     assert len(extracts) == 2
     by_page = {extract.page_number: extract for extract in extracts}
     assert by_page[1].extractor == "local_pymupdf"
