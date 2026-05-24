@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from app.config.settings import Settings, get_settings
+from app.db.database_url import database_url_for
+from app.db.repositories.jobs import SqlJobQueue
 from app.jobs.protocol import JobQueue
-from app.jobs.sql import SqlJobQueue
-from app.metadata.factory import _database_url_for
 
 _queue: JobQueue | None = None
 
@@ -13,13 +13,13 @@ def create_job_queue(settings: Settings | None = None) -> JobQueue:
     cfg = settings or get_settings()
     if settings is not None:
         return SqlJobQueue(
-            _database_url_for(cfg=cfg),
+            database_url_for(cfg=cfg),
             max_attempts=cfg.worker_max_attempts,
         )
 
     if _queue is None:
         _queue = SqlJobQueue(
-            _database_url_for(cfg=cfg),
+            database_url_for(cfg=cfg),
             max_attempts=cfg.worker_max_attempts,
         )
     return _queue

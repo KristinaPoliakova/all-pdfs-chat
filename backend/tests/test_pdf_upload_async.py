@@ -33,7 +33,7 @@ async def test_upload_returns_uploaded_without_pages_field(
 @pytest.mark.asyncio
 async def test_upload_then_worker_classifies_pages(
     api_client: AsyncClient,
-    pdf_metadata_store: object,
+    pdf_repository: object,
     job_queue: object,
     drain_pdf_jobs: object,
 ) -> None:

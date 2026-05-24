@@ -9,8 +9,8 @@ from app.classification.types import (
     PageClassificationResult,
     PdfProcessingStatus,
 )
-from app.metadata.memory import InMemoryPdfMetadataStore
-from app.metadata.sql import SqlPdfMetadataStore
+from app.db.repositories.pdf import SqlPdfRepository
+from app.pdf_repository.memory import InMemoryPdfRepository
 
 
 def _page_result(
@@ -28,7 +28,7 @@ def _page_result(
 
 @pytest.mark.asyncio
 async def test_create_defaults_processing_status_to_uploaded() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
 
     record = await store.create(
         filename="doc.pdf",
@@ -43,7 +43,7 @@ async def test_create_defaults_processing_status_to_uploaded() -> None:
 
 @pytest.mark.asyncio
 async def test_set_processing_status_updates_record() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -64,7 +64,7 @@ async def test_set_processing_status_updates_record() -> None:
 
 @pytest.mark.asyncio
 async def test_set_processing_status_parsing_failed_sets_parsing_error() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -85,7 +85,7 @@ async def test_set_processing_status_parsing_failed_sets_parsing_error() -> None
 
 @pytest.mark.asyncio
 async def test_set_processing_status_parsed_sets_parsed_at() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -101,7 +101,7 @@ async def test_set_processing_status_parsed_sets_parsed_at() -> None:
 
 @pytest.mark.asyncio
 async def test_save_page_classifications_persists_pages() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -135,7 +135,7 @@ async def test_save_page_classifications_persists_pages() -> None:
 
 @pytest.mark.asyncio
 async def test_save_page_classifications_replaces_existing_pages() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -162,7 +162,7 @@ async def test_save_page_classifications_replaces_existing_pages() -> None:
 
 @pytest.mark.asyncio
 async def test_get_pages_returns_empty_for_document_without_pages() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -174,7 +174,7 @@ async def test_get_pages_returns_empty_for_document_without_pages() -> None:
 
 @pytest.mark.asyncio
 async def test_sql_store_persists_pages_and_status() -> None:
-    store = SqlPdfMetadataStore("sqlite+aiosqlite:///:memory:")
+    store = SqlPdfRepository("sqlite+aiosqlite:///:memory:")
     await store.init()
 
     record = await store.create(
@@ -199,7 +199,7 @@ async def test_sql_store_persists_pages_and_status() -> None:
 
 @pytest.mark.asyncio
 async def test_set_processing_status_unknown_id_raises() -> None:
-    store = InMemoryPdfMetadataStore()
+    store = InMemoryPdfRepository()
 
     with pytest.raises(LookupError):
         await store.set_processing_status(

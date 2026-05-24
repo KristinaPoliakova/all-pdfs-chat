@@ -68,4 +68,4 @@ mypy_path = "."
 source = ["app"]
 
 [tool.uv]
-default-groups = ["dev"]
+default-groups = ["dev", "prod"]

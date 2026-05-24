@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
-from app.api.deps import get_pdf_metadata_store, get_pdf_upload_service
-from app.metadata.protocol import PdfMetadataStore
+from app.api.deps import get_pdf_repository, get_pdf_upload_service
+from app.pdf_repository.protocol import PdfRepository
 from app.schemas.pdf import (
     PdfDocumentResponse,
     PdfPagesResponse,
@@ -41,10 +41,10 @@ async def upload_pdf(
 @router.get("/{pdf_id}", response_model=PdfDocumentResponse, response_model_exclude_none=True)
 async def get_pdf(
     pdf_id: str,
-    metadata_store: PdfMetadataStore = Depends(get_pdf_metadata_store),
+    pdf_repository: PdfRepository = Depends(get_pdf_repository),
 ) -> PdfDocumentResponse:
     try:
-        record = await metadata_store.get(pdf_id)
+        record = await pdf_repository.get(pdf_id)
     except LookupError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -60,14 +60,14 @@ async def get_pdf(
 )
 async def get_pdf_pages(
     pdf_id: str,
-    metadata_store: PdfMetadataStore = Depends(get_pdf_metadata_store),
+    pdf_repository: PdfRepository = Depends(get_pdf_repository),
 ) -> PdfPagesResponse:
     try:
-        await metadata_store.get(pdf_id)
+        await pdf_repository.get(pdf_id)
     except LookupError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PDF document not found",
         ) from None
-    pages = await metadata_store.get_pages(pdf_id)
+    pages = await pdf_repository.get_pages(pdf_id)
     return PdfPagesResponse(pages=page_summaries_from_results(pages))

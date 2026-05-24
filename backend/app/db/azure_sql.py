@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import quote_plus
 
 DEFAULT_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
+DEFAULT_LOGIN_TIMEOUT_SECONDS = 60
 
 # pyodbc ignores "User ID" / "Password"; ODBC expects UID / PWD.
 _ODBC_KEY_ALIASES = {
@@ -28,6 +29,34 @@ def _normalize_odbc_connection_string(connection_string: str) -> str:
     return ";".join(parts)
 
 
+def _odbc_has_key(connection_string: str, key: str) -> bool:
+    target = key.replace(" ", "").lower()
+    for segment in connection_string.split(";"):
+        piece = segment.strip()
+        if not piece or "=" not in piece:
+            continue
+        current_key, _ = piece.split("=", 1)
+        if current_key.strip().replace(" ", "").lower() == target:
+            return True
+    return False
+
+
+def _ensure_odbc_defaults(connection_string: str) -> str:
+    """Apply Azure-friendly ODBC defaults when the portal connection string omits them."""
+    odbc = connection_string
+    defaults: list[tuple[str, str]] = [
+        ("LoginTimeout", str(DEFAULT_LOGIN_TIMEOUT_SECONDS)),
+        ("Connection Timeout", str(DEFAULT_LOGIN_TIMEOUT_SECONDS)),
+    ]
+    if "database.windows.net" in odbc.lower() and not _odbc_has_key(odbc, "HostNameInCertificate"):
+        defaults.append(("HostNameInCertificate", "*.database.windows.net"))
+
+    for key, value in defaults:
+        if not _odbc_has_key(odbc, key):
+            odbc = f"{odbc};{key}={value}"
+    return odbc
+
+
 def azure_sql_connectionstring_to_database_url(connection_string: str) -> str:
     """Convert an Azure SQL ODBC/ADO.NET connection string to a SQLAlchemy async URL."""
     value = connection_string.strip()
@@ -40,6 +69,7 @@ def azure_sql_connectionstring_to_database_url(connection_string: str) -> str:
     odbc = _normalize_odbc_connection_string(value)
     if "DRIVER=" not in odbc.upper():
         odbc = f"Driver={{{DEFAULT_ODBC_DRIVER}}};{odbc}"
+    odbc = _ensure_odbc_defaults(odbc)
     return f"mssql+aioodbc:///?odbc_connect={quote_plus(odbc)}"
 
 

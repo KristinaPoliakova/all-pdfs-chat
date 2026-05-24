@@ -7,21 +7,21 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    create_async_engine,
 )
 
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
 from app.core.datetime_utils import ensure_utc
 from app.db.base import Base
+from app.db.engine import create_app_async_engine
+from app.db.models.pdf_document import PdfDocument
+from app.db.models.pdf_page import PdfPage
+from app.db.models.pdf_page_extract import PdfPageExtract
 from app.db.sqlite_paths import sqlite_file_path
-from app.metadata.protocol import PdfMetadataRecord
-from app.models.pdf_document import PdfDocument
-from app.models.pdf_page import PdfPage
-from app.models.pdf_page_extract import PdfPageExtract
 from app.parsing.types import PageExtract
+from app.pdf_repository.protocol import PdfRecord
 
 
-class SqlPdfMetadataStore:
+class SqlPdfRepository:
     def __init__(self, database_url: str) -> None:
         self._database_url = database_url
         self._engine: AsyncEngine | None = None
@@ -46,7 +46,7 @@ class SqlPdfMetadataStore:
         storage_key: str,
         size_bytes: int,
         processing_status: PdfProcessingStatus = PdfProcessingStatus.UPLOADED,
-    ) -> PdfMetadataRecord:
+    ) -> PdfRecord:
         document = PdfDocument(
             filename=filename,
             storage_key=storage_key,
@@ -117,7 +117,7 @@ class SqlPdfMetadataStore:
                 await session.rollback()
                 raise
 
-    async def get(self, pdf_id: str) -> PdfMetadataRecord:
+    async def get(self, pdf_id: str) -> PdfRecord:
         factory = self._get_session_factory()
         async with factory() as session:
             document = await session.get(PdfDocument, pdf_id)
@@ -177,11 +177,7 @@ class SqlPdfMetadataStore:
 
     def _get_engine(self) -> AsyncEngine:
         if self._engine is None:
-            self._engine = create_async_engine(
-                self._database_url,
-                echo=False,
-                pool_pre_ping=True,
-            )
+            self._engine = create_app_async_engine(self._database_url)
         return self._engine
 
     def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:
@@ -200,8 +196,8 @@ def _ensure_sqlite_parent_dir(database_url: str) -> None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _to_record(document: PdfDocument) -> PdfMetadataRecord:
-    return PdfMetadataRecord(
+def _to_record(document: PdfDocument) -> PdfRecord:
+    return PdfRecord(
         id=document.id,
         filename=document.filename,
         storage_key=document.storage_key,

@@ -2,16 +2,16 @@ from unittest.mock import patch
 
 import pytest
 from app.config.settings import _BACKEND_ROOT, Settings
+from app.db.repositories.pdf import SqlPdfRepository
 from app.db.sqlite_paths import sqlite_file_path
-from app.metadata.factory import create_pdf_metadata_store, reset_metadata_store_state
-from app.metadata.sql import SqlPdfMetadataStore
+from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
 
 
 @pytest.fixture(autouse=True)
 async def _reset_factory() -> None:
-    await reset_metadata_store_state()
+    await reset_pdf_repository_state()
     yield
-    await reset_metadata_store_state()
+    await reset_pdf_repository_state()
 
 
 @pytest.mark.asyncio
@@ -22,9 +22,9 @@ async def test_factory_uses_sqlite_url_for_dev() -> None:
         _env_file=None,
     )
 
-    store = create_pdf_metadata_store(settings)
+    store = create_pdf_repository(settings)
 
-    assert isinstance(store, SqlPdfMetadataStore)
+    assert isinstance(store, SqlPdfRepository)
     assert sqlite_file_path(store._database_url) == (_BACKEND_ROOT / "test-dev.db").resolve()
 
 
@@ -39,9 +39,9 @@ async def test_factory_uses_azure_sql_connectionstring_for_prod() -> None:
         _env_file=None,
     )
 
-    store = create_pdf_metadata_store(settings)
+    store = create_pdf_repository(settings)
 
-    assert isinstance(store, SqlPdfMetadataStore)
+    assert isinstance(store, SqlPdfRepository)
     assert store._database_url.startswith("mssql+aioodbc:///?odbc_connect=")
 
 
@@ -56,9 +56,9 @@ def test_settings_rejects_prod_missing_azure_sql_url() -> None:
 
 @pytest.mark.asyncio
 async def test_factory_returns_cached_singleton() -> None:
-    with patch("app.metadata.factory.get_settings") as get_settings:
+    with patch("app.pdf_repository.factory.get_settings") as get_settings:
         get_settings.return_value = Settings(app_env="dev", _env_file=None)
-        first = create_pdf_metadata_store()
-        second = create_pdf_metadata_store()
+        first = create_pdf_repository()
+        second = create_pdf_repository()
 
     assert first is second

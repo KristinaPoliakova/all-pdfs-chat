@@ -1,14 +1,14 @@
 from pathlib import Path
 
 import pytest
-from app.metadata.sql import SqlPdfMetadataStore
+from app.db.repositories.pdf import SqlPdfRepository
 
 
 @pytest.mark.asyncio
 async def test_init_creates_parent_directory_for_sqlite_file(tmp_path: Path) -> None:
     db_file = tmp_path / "nested" / "app.db"
 
-    store = SqlPdfMetadataStore(f"sqlite+aiosqlite:///{db_file}")
+    store = SqlPdfRepository(f"sqlite+aiosqlite:///{db_file}")
     await store.init()
 
     assert db_file.is_file()
@@ -17,7 +17,7 @@ async def test_init_creates_parent_directory_for_sqlite_file(tmp_path: Path) -> 
 
 @pytest.mark.asyncio
 async def test_sql_store_persists_metadata() -> None:
-    store = SqlPdfMetadataStore("sqlite+aiosqlite:///:memory:")
+    store = SqlPdfRepository("sqlite+aiosqlite:///:memory:")
     await store.init()
 
     record = await store.create(

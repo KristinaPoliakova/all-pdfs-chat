@@ -5,7 +5,7 @@ import uuid
 import pytest
 from app.classification.types import PdfProcessingStatus
 from app.config.settings import get_settings
-from app.metadata.memory import InMemoryPdfMetadataStore
+from app.pdf_repository.memory import InMemoryPdfRepository
 from app.storage.memory import InMemoryFileStorage
 from httpx import AsyncClient
 
@@ -19,7 +19,7 @@ OVERSIZED_BYTES = b"x" * 101
 async def test_upload_pdf_returns_metadata_and_stores_file(
     api_client: AsyncClient,
     file_storage: InMemoryFileStorage,
-    pdf_metadata_store: InMemoryPdfMetadataStore,
+    pdf_repository: InMemoryPdfRepository,
     drain_pdf_jobs: object,
 ) -> None:
     pdf_bytes = make_text_pdf_bytes()
@@ -40,7 +40,7 @@ async def test_upload_pdf_returns_metadata_and_stores_file(
 
     await drain_pdf_jobs()
 
-    record = await pdf_metadata_store.get(pdf_id)
+    record = await pdf_repository.get(pdf_id)
     assert record is not None
     assert record.filename == "report.pdf"
     assert record.storage_key.startswith("pdfs/")

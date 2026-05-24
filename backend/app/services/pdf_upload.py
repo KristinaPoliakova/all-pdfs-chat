@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.config.settings import MAX_FILENAME_LENGTH, Settings
 from app.jobs.protocol import JobQueue
-from app.metadata.protocol import PdfMetadataRecord, PdfMetadataStore
+from app.pdf_repository.protocol import PdfRecord, PdfRepository
 from app.storage.protocol import FileStorage
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ _CHUNK_SIZE = 1024 * 1024
 
 @dataclass(frozen=True, slots=True)
 class PdfUploadResult:
-    record: PdfMetadataRecord
+    record: PdfRecord
 
 
 async def read_pdf_upload(file: UploadFile, *, max_size_bytes: int) -> tuple[str, bytes]:
@@ -98,12 +98,12 @@ class PdfUploadService:
     def __init__(
         self,
         *,
-        metadata_store: PdfMetadataStore,
+        pdf_repository: PdfRepository,
         storage: FileStorage,
         settings: Settings,
         job_queue: JobQueue,
     ) -> None:
-        self._metadata_store = metadata_store
+        self._pdf_repository = pdf_repository
         self._storage = storage
         self._settings = settings
         self._job_queue = job_queue
@@ -116,7 +116,7 @@ class PdfUploadService:
         storage_key = build_storage_key(filename)
         await asyncio.to_thread(self._storage.upload, storage_key, data)
         try:
-            record = await self._metadata_store.create(
+            record = await self._pdf_repository.create(
                 filename=filename,
                 storage_key=storage_key,
                 size_bytes=len(data),

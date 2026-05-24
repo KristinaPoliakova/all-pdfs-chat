@@ -9,7 +9,7 @@ from app.parsing.types import PageExtract
 
 
 @dataclass(frozen=True, slots=True)
-class PdfMetadataRecord:
+class PdfRecord:
     id: str
     filename: str
     storage_key: str
@@ -23,7 +23,7 @@ class PdfMetadataRecord:
     parsed_at: datetime | None
 
 
-class PdfMetadataStore(Protocol):
+class PdfRepository(Protocol):
     async def init(self) -> None:
         """Create schema / prepare storage (no-op for in-memory)."""
         ...
@@ -39,7 +39,7 @@ class PdfMetadataStore(Protocol):
         storage_key: str,
         size_bytes: int,
         processing_status: PdfProcessingStatus = PdfProcessingStatus.UPLOADED,
-    ) -> PdfMetadataRecord: ...
+    ) -> PdfRecord: ...
 
     async def set_processing_status(
         self,
@@ -58,7 +58,7 @@ class PdfMetadataStore(Protocol):
         classified_at: datetime,
     ) -> None: ...
 
-    async def get(self, pdf_id: str) -> PdfMetadataRecord: ...
+    async def get(self, pdf_id: str) -> PdfRecord: ...
 
     async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]: ...
 

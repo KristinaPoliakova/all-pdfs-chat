@@ -7,11 +7,11 @@ import pytest
 from app.classification.service import PdfClassificationService
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
 from app.config.settings import Settings
-from app.metadata.memory import InMemoryPdfMetadataStore
 from app.parsing.azure_di import AzureDocumentIntelligenceParser, format_azure_pages_parameter
 from app.parsing.composite import CompositeDocumentParser
 from app.parsing.factory import create_document_parser
 from app.parsing.types import PageExtract
+from app.pdf_repository.memory import InMemoryPdfRepository
 from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
@@ -168,17 +168,17 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
         parsing_poll_interval_seconds=0.01,
         parsing_max_wait_seconds=0,
     )
-    metadata_store = InMemoryPdfMetadataStore()
+    pdf_repository = InMemoryPdfRepository()
     file_storage = InMemoryFileStorage()
     data = make_text_pdf_bytes(pages=1)
     storage_key = "pdfs/timeout.pdf"
     file_storage.upload(storage_key, data)
-    record = await metadata_store.create(
+    record = await pdf_repository.create(
         filename="timeout.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
     )
-    await metadata_store.save_page_classifications(
+    await pdf_repository.save_page_classifications(
         record.id,
         [
             PageClassificationResult(
@@ -190,7 +190,7 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
         page_count=1,
         classified_at=record.created_at,
     )
-    await metadata_store.set_processing_status(record.id, PdfProcessingStatus.CLASSIFIED)
+    await pdf_repository.set_processing_status(record.id, PdfProcessingStatus.CLASSIFIED)
 
     parser = CompositeDocumentParser(
         settings=settings,
@@ -198,7 +198,7 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
     )
 
     pipeline = PdfProcessingPipeline(
-        metadata_store=metadata_store,
+        pdf_repository=pdf_repository,
         storage=file_storage,
         settings=settings,
         classifier=PdfClassificationService(settings=settings),
@@ -208,7 +208,7 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
     extract_count = await pipeline._phase_parse(record.id, data)
 
     assert extract_count == 0
-    updated = await metadata_store.get(record.id)
+    updated = await pdf_repository.get(record.id)
     assert updated.processing_status == PdfProcessingStatus.PARSING_FAILED
     assert updated.parsing_error is not None
     assert "timed out" in updated.parsing_error.lower()

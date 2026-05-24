@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from app.db.repositories.jobs import SqlJobQueue
 from app.jobs.protocol import JobStatus
-from app.jobs.sql import SqlJobQueue
 
 
 @pytest.mark.asyncio
