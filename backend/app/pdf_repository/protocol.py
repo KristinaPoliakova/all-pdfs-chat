@@ -24,14 +24,6 @@ class PdfRecord:
 
 
 class PdfRepository(Protocol):
-    async def init(self) -> None:
-        """Create schema / prepare storage (no-op for in-memory)."""
-        ...
-
-    async def close(self) -> None:
-        """Release connections (no-op for in-memory)."""
-        ...
-
     async def create(
         self,
         *,

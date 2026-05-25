@@ -10,6 +10,8 @@ dependencies = [
     "azure-ai-documentintelligence>=1.0.2",
     "azure-identity>=1.25.3",
     "azure-storage-blob>=12.24",
+    "bcrypt>=4.2",
+    "email-validator>=2.2",
     "fastapi>=0.115",
     "pdfplumber>=0.11.9",
     "pydantic-settings>=2.8",
@@ -56,7 +58,9 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 "app/api/**/*.py" = ["B008"]
+"app/auth/**/*.py" = ["B008"]
 "backend/app/api/**/*.py" = ["B008"]
+"backend/app/auth/**/*.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.14"

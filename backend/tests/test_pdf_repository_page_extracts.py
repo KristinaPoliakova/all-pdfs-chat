@@ -4,9 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 from app.classification.types import PageClass, PageClassificationResult
-from app.db.repositories.pdf import SqlPdfRepository
 from app.parsing.types import PageExtract
 from app.pdf_repository.memory import InMemoryPdfRepository
+
+from tests.db_helpers import make_sql_pdf_repository, open_test_database
 
 
 def _page_result(page_number: int, *, page_class: PageClass) -> PageClassificationResult:
@@ -88,8 +89,8 @@ async def test_save_page_extracts_replaces_existing_rows() -> None:
 
 @pytest.mark.asyncio
 async def test_sql_store_persists_page_extracts() -> None:
-    store = SqlPdfRepository("sqlite+aiosqlite:///:memory:")
-    await store.init()
+    runtime = await open_test_database()
+    store = make_sql_pdf_repository(runtime)
     record = await store.create(
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
@@ -110,4 +111,4 @@ async def test_sql_store_persists_page_extracts() -> None:
     assert len(extracts) == 1
     assert extracts[0].content_text == "sql text"
 
-    await store.close()
+    await runtime.close()

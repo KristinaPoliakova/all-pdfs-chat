@@ -3,41 +3,24 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.db.base import Base
-from app.db.engine import create_app_async_engine
 from app.db.models.pdf_job import PdfJob
-from app.db.sqlite_paths import sqlite_file_path
 from app.jobs.protocol import JobStatus, PdfJobRecord
 
 
 class SqlJobQueue:
-    def __init__(self, database_url: str, *, max_attempts: int = 3) -> None:
-        self._database_url = database_url
+    def __init__(
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        max_attempts: int = 3,
+    ) -> None:
+        self._session_factory = session_factory
         self._max_attempts = max_attempts
-        self._engine: AsyncEngine | None = None
-        self._session_factory: async_sessionmaker[AsyncSession] | None = None
-
-    async def init(self) -> None:
-        _ensure_sqlite_parent_dir(self._database_url)
-        engine = self._get_engine()
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    async def close(self) -> None:
-        if self._engine is not None:
-            await self._engine.dispose()
-        self._engine = None
-        self._session_factory = None
 
     async def enqueue(self, *, pdf_id: str, job_type: str) -> PdfJobRecord:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             existing = await session.execute(
                 select(PdfJob).where(PdfJob.pdf_id == pdf_id),
             )
@@ -64,9 +47,8 @@ class SqlJobQueue:
         return _to_record(job)
 
     async def claim_next(self, *, worker_id: str) -> PdfJobRecord | None:
-        factory = self._get_session_factory()
         now = datetime.now(UTC)
-        async with factory() as session:
+        async with self._session_factory() as session:
             async with session.begin():
                 result = await session.execute(
                     select(PdfJob)
@@ -86,9 +68,8 @@ class SqlJobQueue:
         return _to_record(job)
 
     async def complete(self, job_id: str) -> None:
-        factory = self._get_session_factory()
         now = datetime.now(UTC)
-        async with factory() as session:
+        async with self._session_factory() as session:
             job = await session.get(PdfJob, job_id)
             if job is None:
                 raise LookupError(f"Job not found: {job_id}")
@@ -104,9 +85,8 @@ class SqlJobQueue:
                 raise
 
     async def fail_or_retry(self, job_id: str, *, error: str) -> None:
-        factory = self._get_session_factory()
         now = datetime.now(UTC)
-        async with factory() as session:
+        async with self._session_factory() as session:
             job = await session.get(PdfJob, job_id)
             if job is None:
                 raise LookupError(f"Job not found: {job_id}")
@@ -129,10 +109,9 @@ class SqlJobQueue:
                 raise
 
     async def release_stale_locks(self, *, older_than: datetime) -> int:
-        factory = self._get_session_factory()
         now = datetime.now(UTC)
         released = 0
-        async with factory() as session:
+        async with self._session_factory() as session:
             result = await session.execute(
                 select(PdfJob).where(PdfJob.status == JobStatus.RUNNING.value),
             )
@@ -157,33 +136,12 @@ class SqlJobQueue:
         return released
 
     async def get_by_pdf_id(self, pdf_id: str) -> PdfJobRecord:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             result = await session.execute(select(PdfJob).where(PdfJob.pdf_id == pdf_id))
             job = result.scalar_one_or_none()
             if job is None:
                 raise LookupError(f"Job not found for pdf_id: {pdf_id}")
         return _to_record(job)
-
-    def _get_engine(self) -> AsyncEngine:
-        if self._engine is None:
-            self._engine = create_app_async_engine(self._database_url)
-        return self._engine
-
-    def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:
-        if self._session_factory is None:
-            self._session_factory = async_sessionmaker(
-                self._get_engine(),
-                class_=AsyncSession,
-                expire_on_commit=False,
-            )
-        return self._session_factory
-
-
-def _ensure_sqlite_parent_dir(database_url: str) -> None:
-    db_path = sqlite_file_path(database_url)
-    if db_path is not None:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _as_utc(value: datetime | None) -> datetime | None:

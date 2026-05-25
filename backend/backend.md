@@ -4,34 +4,45 @@ Python **3.14**, **`uv`**, async **FastAPI**, **pytest** + **httpx** for API tes
 
 ## Project layout
 
-Persistence is split into **three ports**. Each port has a protocol, in-memory test doubles, a factory, and (where applicable) a SQL implementation under `app/db/`.
+Persistence is split into **five ports**. Each port has a protocol, in-memory test doubles, a factory, and (where applicable) a SQL implementation under `app/db/`.
 
 | Port | Holds | Package | SQL implementation |
 |------|-------|---------|-------------------|
 | `FileStorage` | Raw PDF bytes | `app/storage/` | — (disk or Azure Blob) |
 | `PdfRepository` | Document rows, page classifications, text extracts | `app/pdf_repository/` | `app/db/repositories/pdf.py` → `SqlPdfRepository` |
 | `JobQueue` | Background job rows | `app/jobs/` | `app/db/repositories/jobs.py` → `SqlJobQueue` |
+| `UserRepository` | User accounts | `app/user_repository/` | `app/db/repositories/users.py` → `SqlUserRepository` |
+| `SessionRepository` | Login sessions (token hashes) | `app/session_repository/` | `app/db/repositories/sessions.py` → `SqlSessionRepository` |
 
 ```
 app/
 ├── storage/                 # FileStorage — blob bytes (local disk / Azure Blob)
 ├── pdf_repository/          # PdfRepository port — protocol, InMemoryPdfRepository, factory
 ├── jobs/                    # JobQueue port — protocol, InMemoryJobQueue, factory
+├── user_repository/         # UserRepository port — protocol, InMemoryUserRepository, factory
+├── session_repository/      # SessionRepository port — protocol, InMemorySessionRepository, factory
+├── auth/                    # AuthService, password/token helpers, get_current_user dep
 ├── db/                      # Everything SQL-specific
 │   ├── base.py              # SQLAlchemy DeclarativeBase
 │   ├── engine.py            # Async engine factory
 │   ├── database_url.py      # Dev/prod DATABASE_URL resolution
 │   ├── azure_sql.py         # Azure connection string → SQLAlchemy URL
 │   ├── sqlite_paths.py      # SQLite path helpers
+│   ├── runtime.py           # DatabaseRuntime — shared engine + session_factory
+│   ├── lifecycle.py         # init_database(), close_database(), get_database()
 │   ├── startup_errors.py    # Friendly DB startup error messages
 │   ├── models/              # ORM table definitions
 │   │   ├── pdf_document.py
 │   │   ├── pdf_page.py
 │   │   ├── pdf_page_extract.py
-│   │   └── pdf_job.py
+│   │   ├── pdf_job.py
+│   │   ├── user.py
+│   │   └── user_session.py
 │   └── repositories/
 │       ├── pdf.py           # SqlPdfRepository
-│       └── jobs.py          # SqlJobQueue
+│       ├── jobs.py          # SqlJobQueue
+│       ├── users.py         # SqlUserRepository
+│       └── sessions.py      # SqlSessionRepository
 ├── api/                     # Routes + FastAPI dependencies
 ├── services/                # Upload orchestration
 ├── worker/                  # Job poll loop + processing pipeline
@@ -44,12 +55,13 @@ app/
 
 ### How the layers connect
 
-- **API, worker, and services** depend on ports only: `FileStorage`, `PdfRepository`, `JobQueue`.
-- **Factories** (`create_file_storage`, `create_pdf_repository`, `create_job_queue`) wire dev/prod backends. In tests, FastAPI `dependency_overrides` inject in-memory fakes instead.
-- **`app/db/`** is the SQL stack: ORM models, engine, and SQL repository classes. Nothing outside factories/tests should import `SqlPdfRepository` or `SqlJobQueue` directly.
+- **API, worker, and services** depend on ports only: `FileStorage`, `PdfRepository`, `JobQueue`, `UserRepository`, `SessionRepository`.
+- **Factories** wire dev/prod backends. In tests, FastAPI `dependency_overrides` inject in-memory fakes instead.
+- **`AuthService`** (`app/auth/service.py`) orchestrates register/login/logout using both user and session repos. Password hashing and token generation live here, not in repositories.
+- **`app/db/`** is the SQL stack. A single **`DatabaseRuntime`** owns the async engine and `async_sessionmaker`; SQL repositories receive the session factory only (no per-repo engines). Nothing outside factories/tests should import SQL repository classes directly.
 - **Upload** writes to two backends: bytes → `FileStorage`, document row → `PdfRepository`. The worker reads bytes from storage and writes classification/parsing results to the repository.
 
-Handlers and services do not use raw SQLAlchemy sessions — all SQL access goes through `PdfRepository` or `JobQueue`.
+Handlers and services do not use raw SQLAlchemy sessions — all SQL access goes through port repositories (`PdfRepository`, `JobQueue`, `UserRepository`, `SessionRepository`).
 
 ## Architecture (async upload)
 
@@ -83,6 +95,10 @@ uv run python -m app.worker             # terminal 2 — background processing
 
 | Method | Path | Purpose |
 |--------|------|---------|
+| `POST` | `/api/v1/auth/register` | Create account. **201** + bearer token |
+| `POST` | `/api/v1/auth/login` | Sign in. **200** + bearer token |
+| `POST` | `/api/v1/auth/logout` | Revoke session (Bearer token). **204** |
+| `GET` | `/api/v1/auth/me` | Current user (Bearer token). **200** |
 | `POST` | `/api/v1/pdfs` | Upload PDF (multipart field `file`). **201** + `Location: /api/v1/pdfs/{id}` |
 | `GET` | `/api/v1/pdfs/{id}` | Document record + **`processing_status`** |
 | `GET` | `/api/v1/pdfs/{id}/pages` | Per-page classification (empty until worker runs) |
@@ -122,10 +138,10 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 | | `dev` | `prod` |
 |---|--------|--------|
 | PDF bytes (`FileStorage`) | Local disk | Azure Blob |
-| PDF rows + jobs (`PdfRepository`, `JobQueue`) | SQLite via `SqlPdfRepository` / `SqlJobQueue` | Azure SQL |
+| PDF rows + jobs + auth (`PdfRepository`, `JobQueue`, `UserRepository`, `SessionRepository`) | SQLite via shared `DatabaseRuntime` | Azure SQL |
 
-- `create_file_storage()`, `create_pdf_repository()`, and `create_job_queue()` are **singletons** per process.
-- `PdfRepository` and `JobQueue` share the same database URL in dev/prod.
+- `create_file_storage()`, `create_pdf_repository()`, `create_job_queue()`, `create_user_repository()`, and `create_session_repository()` are **singletons** per process.
+- All SQL repositories share one **`DatabaseRuntime`** (one engine, one connection pool) via `get_database()`.
 - **Prod SQL driver:** `uv sync --group prod` installs `aioodbc` for `mssql+aioodbc://` URLs.
 - **Tests:** in-memory fakes via `dependency_overrides` in `tests/conftest.py` — never configured in `.env`.
 
@@ -156,6 +172,7 @@ When `PARSING_ENABLED=false`, complex pages are skipped (simple pages still extr
 | `AZURE_DOCUMENT_INTELLIGENCE_API_KEY` | | Dev API key; prod uses `DefaultAzureCredential` when empty |
 | `PARSING_POLL_INTERVAL_SECONDS` | `2` | Azure DI poll interval |
 | `PARSING_MAX_WAIT_SECONDS` | `600` | Azure DI operation timeout |
+| `SESSION_TTL_SECONDS` | `604800` | Auth session lifetime (7 days) |
 
 ## Worker logging
 
@@ -169,7 +186,7 @@ Use `LOG_LEVEL=DEBUG` for more detail.
 
 ## Startup vs upload
 
-- **Startup:** `PdfRepository.init()` and `JobQueue.init()` create SQL tables in `data/app.db` (dev).
+- **Startup:** `init_database()` runs once (API and worker), then port factories wire SQL singletons.
 - **First upload:** creates `data/uploads/pdfs/...` on disk (no prep step for file storage).
 
 After local schema changes, delete `data/app.db` (and `-wal`/`-shm` if present) and restart **both** API and worker.

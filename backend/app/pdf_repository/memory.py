@@ -15,12 +15,6 @@ class InMemoryPdfRepository:
         self._pages: dict[str, list[PageClassificationResult]] = {}
         self._extracts: dict[str, list[PageExtract]] = {}
 
-    async def init(self) -> None:
-        return None
-
-    async def close(self) -> None:
-        return None
-
     async def create(
         self,
         *,

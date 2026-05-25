@@ -6,6 +6,7 @@ from app.db.azure_sql import (
     azure_sql_connectionstring_to_database_url,
     resolve_prod_database_url,
 )
+from app.db.lifecycle import get_database
 from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
 
 
@@ -108,6 +109,6 @@ async def test_factory_uses_connectionstring_for_prod() -> None:
         _env_file=None,
     )
 
-    store = create_pdf_repository(settings)
+    create_pdf_repository(settings)
 
-    assert store._database_url.startswith("mssql+aioodbc:///?odbc_connect=")
+    assert get_database(settings).database_url.startswith("mssql+aioodbc:///?odbc_connect=")

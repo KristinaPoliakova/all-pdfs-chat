@@ -3,41 +3,20 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
 from app.core.datetime_utils import ensure_utc
-from app.db.base import Base
-from app.db.engine import create_app_async_engine
 from app.db.models.pdf_document import PdfDocument
 from app.db.models.pdf_page import PdfPage
 from app.db.models.pdf_page_extract import PdfPageExtract
-from app.db.sqlite_paths import sqlite_file_path
 from app.parsing.types import PageExtract
 from app.pdf_repository.protocol import PdfRecord
 
 
 class SqlPdfRepository:
-    def __init__(self, database_url: str) -> None:
-        self._database_url = database_url
-        self._engine: AsyncEngine | None = None
-        self._session_factory: async_sessionmaker[AsyncSession] | None = None
-
-    async def init(self) -> None:
-        _ensure_sqlite_parent_dir(self._database_url)
-        engine = self._get_engine()
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-    async def close(self) -> None:
-        if self._engine is not None:
-            await self._engine.dispose()
-        self._engine = None
-        self._session_factory = None
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+        self._session_factory = session_factory
 
     async def create(
         self,
@@ -53,8 +32,7 @@ class SqlPdfRepository:
             size_bytes=size_bytes,
             processing_status=processing_status.value,
         )
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             try:
                 session.add(document)
                 await session.commit()
@@ -71,8 +49,7 @@ class SqlPdfRepository:
         *,
         error: str | None = None,
     ) -> None:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             document = await session.get(PdfDocument, pdf_id)
             if document is None:
                 raise LookupError(f"PDF document not found: {pdf_id}")
@@ -91,8 +68,7 @@ class SqlPdfRepository:
         page_count: int,
         classified_at: datetime,
     ) -> None:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             document = await session.get(PdfDocument, pdf_id)
             if document is None:
                 raise LookupError(f"PDF document not found: {pdf_id}")
@@ -118,16 +94,14 @@ class SqlPdfRepository:
                 raise
 
     async def get(self, pdf_id: str) -> PdfRecord:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             document = await session.get(PdfDocument, pdf_id)
             if document is None:
                 raise LookupError(f"PDF document not found: {pdf_id}")
         return _to_record(document)
 
     async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             result = await session.execute(
                 select(PdfPage)
                 .where(PdfPage.pdf_document_id == pdf_id)
@@ -141,8 +115,7 @@ class SqlPdfRepository:
         pdf_id: str,
         extracts: list[PageExtract],
     ) -> None:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             document = await session.get(PdfDocument, pdf_id)
             if document is None:
                 raise LookupError(f"PDF document not found: {pdf_id}")
@@ -165,8 +138,7 @@ class SqlPdfRepository:
                 raise
 
     async def get_page_extracts(self, pdf_id: str) -> list[PageExtract]:
-        factory = self._get_session_factory()
-        async with factory() as session:
+        async with self._session_factory() as session:
             result = await session.execute(
                 select(PdfPageExtract)
                 .where(PdfPageExtract.pdf_document_id == pdf_id)
@@ -174,26 +146,6 @@ class SqlPdfRepository:
             )
             rows = result.scalars().all()
         return [_to_page_extract(row) for row in rows]
-
-    def _get_engine(self) -> AsyncEngine:
-        if self._engine is None:
-            self._engine = create_app_async_engine(self._database_url)
-        return self._engine
-
-    def _get_session_factory(self) -> async_sessionmaker[AsyncSession]:
-        if self._session_factory is None:
-            self._session_factory = async_sessionmaker(
-                self._get_engine(),
-                class_=AsyncSession,
-                expire_on_commit=False,
-            )
-        return self._session_factory
-
-
-def _ensure_sqlite_parent_dir(database_url: str) -> None:
-    db_path = sqlite_file_path(database_url)
-    if db_path is not None:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _to_record(document: PdfDocument) -> PdfRecord:

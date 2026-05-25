@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.config.settings import Settings, get_settings
-from app.db.database_url import database_url_for
+from app.config.settings import Settings
+from app.db.lifecycle import get_database
 from app.db.repositories.pdf import SqlPdfRepository
 from app.pdf_repository.protocol import PdfRepository
 
@@ -12,15 +12,13 @@ def create_pdf_repository(settings: Settings | None = None) -> PdfRepository:
     """Dev/prod SQL store. Tests inject InMemoryPdfRepository via FastAPI overrides."""
     global _store
     if settings is not None:
-        return SqlPdfRepository(database_url_for(cfg=settings))
+        return SqlPdfRepository(get_database(settings).session_factory)
 
     if _store is None:
-        _store = SqlPdfRepository(database_url_for(cfg=get_settings()))
+        _store = SqlPdfRepository(get_database().session_factory)
     return _store
 
 
 async def reset_pdf_repository_state() -> None:
     global _store
-    if _store is not None:
-        await _store.close()
     _store = None

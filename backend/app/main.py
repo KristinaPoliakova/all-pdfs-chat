@@ -8,44 +8,52 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
 
-import app.db.models  # noqa: F401 - register ORM models with Base.metadata
+import app.db.models as _db_models  # noqa: F401 - register ORM models with Base.metadata
 from app.api.router import api_router
 from app.api.routes import health
 from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
+from app.db.lifecycle import close_database, init_database
 from app.db.sqlite_paths import ensure_sqlite_writable
 from app.db.startup_errors import format_database_startup_error
 from app.jobs.factory import create_job_queue, reset_job_queue_state
 from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
+from app.session_repository.factory import create_session_repository, reset_session_repository_state
 from app.storage.factory import reset_file_storage_state
+from app.user_repository.factory import create_user_repository, reset_user_repository_state
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
 
     if settings.is_dev:
         ensure_sqlite_writable(settings.database_url)
 
-    pdf_repository = create_pdf_repository()
     try:
-        await pdf_repository.init()
-        job_queue = create_job_queue()
-        await job_queue.init()
+        await init_database()
     except OperationalError as exc:
         logger.error(format_database_startup_error(exc))
         raise
-    app.state.ready = True
+
+    create_pdf_repository()
+    create_job_queue()
+    create_user_repository()
+    create_session_repository()
+
+    fastapi_app.state.ready = True
     yield
-    app.state.ready = False
-    await job_queue.close()
+    fastapi_app.state.ready = False
+    await reset_session_repository_state()
+    await reset_user_repository_state()
     await reset_job_queue_state()
     await reset_pdf_repository_state()
     reset_file_storage_state()
+    await close_database()
 
 
 def create_app() -> FastAPI:

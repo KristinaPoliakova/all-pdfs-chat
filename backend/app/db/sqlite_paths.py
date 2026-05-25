@@ -39,6 +39,12 @@ def sqlite_file_path(database_url: str) -> Path | None:
     return Path(raw_path)
 
 
+def ensure_sqlite_parent_dir(database_url: str) -> None:
+    db_path = sqlite_file_path(database_url)
+    if db_path is not None:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
+
 def ensure_sqlite_writable(database_url: str) -> None:
     """Fail fast with a clear message when the SQLite file or directory is not writable."""
     db_path = sqlite_file_path(database_url)

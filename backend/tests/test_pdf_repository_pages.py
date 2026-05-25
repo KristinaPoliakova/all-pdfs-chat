@@ -9,8 +9,9 @@ from app.classification.types import (
     PageClassificationResult,
     PdfProcessingStatus,
 )
-from app.db.repositories.pdf import SqlPdfRepository
 from app.pdf_repository.memory import InMemoryPdfRepository
+
+from tests.db_helpers import make_sql_pdf_repository, open_test_database
 
 
 def _page_result(
@@ -174,8 +175,8 @@ async def test_get_pages_returns_empty_for_document_without_pages() -> None:
 
 @pytest.mark.asyncio
 async def test_sql_store_persists_pages_and_status() -> None:
-    store = SqlPdfRepository("sqlite+aiosqlite:///:memory:")
-    await store.init()
+    runtime = await open_test_database()
+    store = make_sql_pdf_repository(runtime)
 
     record = await store.create(
         filename="doc.pdf",
@@ -194,7 +195,7 @@ async def test_sql_store_persists_pages_and_status() -> None:
     assert len(saved) == 1
     assert saved[0].page_class == PageClass.BORN_DIGITAL_SIMPLE
 
-    await store.close()
+    await runtime.close()
 
 
 @pytest.mark.asyncio

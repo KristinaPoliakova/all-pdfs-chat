@@ -3,14 +3,15 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.db.repositories.jobs import SqlJobQueue
 from app.jobs.protocol import JobStatus
+
+from tests.db_helpers import make_sql_job_queue, open_test_database
 
 
 @pytest.mark.asyncio
 async def test_sql_enqueue_claim_and_complete() -> None:
-    queue = SqlJobQueue("sqlite+aiosqlite:///:memory:", max_attempts=3)
-    await queue.init()
+    runtime = await open_test_database()
+    queue = make_sql_job_queue(runtime, max_attempts=3)
 
     await queue.enqueue(pdf_id="pdf-1", job_type="process_pdf")
     claimed = await queue.claim_next(worker_id="worker-a")
@@ -22,25 +23,25 @@ async def test_sql_enqueue_claim_and_complete() -> None:
     done = await queue.get_by_pdf_id("pdf-1")
     assert done.status == JobStatus.COMPLETED
 
-    await queue.close()
+    await runtime.close()
 
 
 @pytest.mark.asyncio
 async def test_sql_enqueue_is_idempotent_per_pdf_id() -> None:
-    queue = SqlJobQueue("sqlite+aiosqlite:///:memory:")
-    await queue.init()
+    runtime = await open_test_database()
+    queue = make_sql_job_queue(runtime)
 
     first = await queue.enqueue(pdf_id="pdf-1", job_type="process_pdf")
     second = await queue.enqueue(pdf_id="pdf-1", job_type="process_pdf")
     assert second.id == first.id
 
-    await queue.close()
+    await runtime.close()
 
 
 @pytest.mark.asyncio
 async def test_sql_release_stale_locks() -> None:
-    queue = SqlJobQueue("sqlite+aiosqlite:///:memory:")
-    await queue.init()
+    runtime = await open_test_database()
+    queue = make_sql_job_queue(runtime)
     await queue.enqueue(pdf_id="pdf-1", job_type="process_pdf")
     claimed = await queue.claim_next(worker_id="worker-a")
     assert claimed is not None
@@ -53,4 +54,4 @@ async def test_sql_release_stale_locks() -> None:
     updated = await queue.get_by_pdf_id("pdf-1")
     assert updated.status == JobStatus.PENDING
 
-    await queue.close()
+    await runtime.close()

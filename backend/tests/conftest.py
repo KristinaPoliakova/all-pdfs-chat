@@ -2,16 +2,22 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 import pytest
 from app.api.deps import get_file_storage, get_job_queue, get_pdf_repository
+from app.auth.deps import get_session_repository, get_user_repository
 from app.classification.service import PdfClassificationService
 from app.config.settings import Settings, get_settings
+from app.db.lifecycle import reset_database_state
 from app.jobs.factory import reset_job_queue_state
 from app.jobs.memory import InMemoryJobQueue
 from app.main import create_app
 from app.parsing.composite import CompositeDocumentParser
 from app.pdf_repository.factory import reset_pdf_repository_state
 from app.pdf_repository.memory import InMemoryPdfRepository
+from app.session_repository.factory import reset_session_repository_state
+from app.session_repository.memory import InMemorySessionRepository
 from app.storage.factory import reset_file_storage_state
 from app.storage.memory import InMemoryFileStorage
+from app.user_repository.factory import reset_user_repository_state
+from app.user_repository.memory import InMemoryUserRepository
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 from httpx import ASGITransport, AsyncClient
 
@@ -39,12 +45,18 @@ def _isolate_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 async def _reset_pdf_repository_factory() -> None:
+    await reset_database_state()
     await reset_pdf_repository_state()
     await reset_job_queue_state()
+    await reset_user_repository_state()
+    await reset_session_repository_state()
     reset_file_storage_state()
     yield
+    await reset_database_state()
     await reset_pdf_repository_state()
     await reset_job_queue_state()
+    await reset_user_repository_state()
+    await reset_session_repository_state()
     reset_file_storage_state()
 
 
@@ -66,10 +78,22 @@ def pdf_repository() -> InMemoryPdfRepository:
 
 
 @pytest.fixture
+def user_repository() -> InMemoryUserRepository:
+    return InMemoryUserRepository()
+
+
+@pytest.fixture
+def session_repository() -> InMemorySessionRepository:
+    return InMemorySessionRepository()
+
+
+@pytest.fixture
 async def api_client(
     file_storage: InMemoryFileStorage,
     pdf_repository: InMemoryPdfRepository,
     job_queue: InMemoryJobQueue,
+    user_repository: InMemoryUserRepository,
+    session_repository: InMemorySessionRepository,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[AsyncClient]:
     get_settings.cache_clear()
@@ -79,7 +103,7 @@ async def api_client(
 
     monkeypatch.setattr("app.main.get_settings", _get_test_settings)
     monkeypatch.setattr("app.config.settings.get_settings", _get_test_settings)
-    monkeypatch.setattr("app.pdf_repository.factory.get_settings", _get_test_settings)
+    monkeypatch.setattr("app.db.lifecycle.get_settings", _get_test_settings)
     monkeypatch.setattr("app.jobs.factory.get_settings", _get_test_settings)
     monkeypatch.setattr("app.storage.factory.get_settings", _get_test_settings)
 
@@ -88,6 +112,8 @@ async def api_client(
     app.dependency_overrides[get_file_storage] = lambda: file_storage
     app.dependency_overrides[get_pdf_repository] = lambda: pdf_repository
     app.dependency_overrides[get_job_queue] = lambda: job_queue
+    app.dependency_overrides[get_user_repository] = lambda: user_repository
+    app.dependency_overrides[get_session_repository] = lambda: session_repository
 
     async with app.router.lifespan_context(app):
         transport = ASGITransport(app=app)

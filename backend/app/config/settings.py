@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     azure_document_intelligence_api_key: str = ""
     parsing_poll_interval_seconds: float = 2.0
     parsing_max_wait_seconds: int = 600
+    session_ttl_seconds: int = 7 * 24 * 3600
 
     @property
     def is_prod(self) -> bool:

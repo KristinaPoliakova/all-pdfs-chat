@@ -28,14 +28,6 @@ class PdfJobRecord:
 
 
 class JobQueue(Protocol):
-    async def init(self) -> None:
-        """Create schema / prepare storage (no-op for in-memory)."""
-        ...
-
-    async def close(self) -> None:
-        """Release connections (no-op for in-memory)."""
-        ...
-
     async def enqueue(self, *, pdf_id: str, job_type: str) -> PdfJobRecord: ...
 
     async def claim_next(self, *, worker_id: str) -> PdfJobRecord | None: ...

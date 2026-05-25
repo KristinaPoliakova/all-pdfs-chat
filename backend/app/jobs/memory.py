@@ -13,12 +13,6 @@ class InMemoryJobQueue:
         self._pdf_id_to_job_id: dict[str, str] = {}
         self._max_attempts = max_attempts
 
-    async def init(self) -> None:
-        return None
-
-    async def close(self) -> None:
-        return None
-
     async def enqueue(self, *, pdf_id: str, job_type: str) -> PdfJobRecord:
         existing_id = self._pdf_id_to_job_id.get(pdf_id)
         if existing_id is not None:

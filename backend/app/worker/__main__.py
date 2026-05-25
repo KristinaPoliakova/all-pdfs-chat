@@ -9,6 +9,7 @@ import socket
 from app.classification.service import PdfClassificationService
 from app.config.settings import get_settings
 from app.core.logging import configure_logging
+from app.db.lifecycle import close_database, init_database
 from app.db.sqlite_paths import ensure_sqlite_writable
 from app.jobs.factory import create_job_queue, reset_job_queue_state
 from app.parsing.factory import create_document_parser
@@ -26,10 +27,9 @@ async def run_worker() -> None:
     if settings.is_dev:
         ensure_sqlite_writable(settings.database_url)
 
+    await init_database()
     pdf_repository = create_pdf_repository()
-    await pdf_repository.init()
     job_queue = create_job_queue()
-    await job_queue.init()
     storage = create_file_storage()
     classifier = PdfClassificationService(settings=settings)
     parser = create_document_parser(settings)
@@ -91,10 +91,10 @@ async def run_worker() -> None:
                 )
                 await job_queue.fail_or_retry(job.id, error=str(exc))
     finally:
-        await job_queue.close()
         await reset_job_queue_state()
         await reset_pdf_repository_state()
         reset_file_storage_state()
+        await close_database()
         logger.info("PDF worker stopped id=%s", worker_id)
 
 
