@@ -21,6 +21,7 @@ from app.user_repository.memory import InMemoryUserRepository
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 from httpx import ASGITransport, AsyncClient
 
+from tests.auth_helpers import register_and_get_auth_headers
 from tests.settings_helpers import TEST_DATABASE_URL, make_test_settings
 
 
@@ -85,6 +86,11 @@ def user_repository() -> InMemoryUserRepository:
 @pytest.fixture
 def session_repository() -> InMemorySessionRepository:
     return InMemorySessionRepository()
+
+
+@pytest.fixture
+async def auth_headers(api_client: AsyncClient) -> dict[str, str]:
+    return await register_and_get_auth_headers(api_client)
 
 
 @pytest.fixture
