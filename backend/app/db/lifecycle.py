@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from app.config.settings import Settings, get_settings
-from app.db.database_url import database_url_for
+from app.db.azure_sql import resolve_prod_database_url
 from app.db.runtime import DatabaseRuntime
 
 _runtime: DatabaseRuntime | None = None
+
+
+def _database_url_for(*, cfg: Settings) -> str:
+    if cfg.is_prod:
+        return resolve_prod_database_url(
+            azure_sql_connectionstring=cfg.azure_sql_connectionstring,
+        )
+    return cfg.database_url
 
 
 def get_database(settings: Settings | None = None) -> DatabaseRuntime:
@@ -14,11 +22,11 @@ def get_database(settings: Settings | None = None) -> DatabaseRuntime:
     replacing the process singleton.
     """
     if settings is not None:
-        return DatabaseRuntime(database_url_for(cfg=settings))
+        return DatabaseRuntime(_database_url_for(cfg=settings))
 
     global _runtime
     if _runtime is None:
-        _runtime = DatabaseRuntime(database_url_for(cfg=get_settings()))
+        _runtime = DatabaseRuntime(_database_url_for(cfg=get_settings()))
     return _runtime
 
 

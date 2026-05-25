@@ -24,12 +24,10 @@ app/
 ├── auth/                    # AuthService, password/token helpers, get_current_user dep
 ├── db/                      # Everything SQL-specific
 │   ├── base.py              # SQLAlchemy DeclarativeBase
-│   ├── engine.py            # Async engine factory
-│   ├── database_url.py      # Dev/prod DATABASE_URL resolution
 │   ├── azure_sql.py         # Azure connection string → SQLAlchemy URL
 │   ├── sqlite_paths.py      # SQLite path helpers
 │   ├── runtime.py           # DatabaseRuntime — shared engine + session_factory
-│   ├── lifecycle.py         # init_database(), close_database(), get_database()
+│   ├── lifecycle.py         # get_database(), init/close, dev/prod URL resolution
 │   ├── startup_errors.py    # Friendly DB startup error messages
 │   ├── models/              # ORM table definitions
 │   │   ├── pdf_document.py

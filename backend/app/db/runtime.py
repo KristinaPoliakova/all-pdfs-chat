@@ -6,11 +6,24 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
+    create_async_engine,
 )
 
 from app.db.base import Base
-from app.db.engine import create_app_async_engine
 from app.db.sqlite_paths import ensure_sqlite_parent_dir
+
+# Azure SQL cold start (auto-pause resume) and slow networks can exceed ODBC's ~15s default.
+_AZURE_SQL_LOGIN_TIMEOUT_SECONDS = 60
+
+
+def _create_app_async_engine(database_url: str) -> AsyncEngine:
+    kwargs: dict[str, object] = {
+        "echo": False,
+        "pool_pre_ping": True,
+    }
+    if database_url.startswith("mssql+"):
+        kwargs["connect_args"] = {"timeout": _AZURE_SQL_LOGIN_TIMEOUT_SECONDS}
+    return create_async_engine(database_url, **kwargs)
 
 
 @dataclass
@@ -44,5 +57,5 @@ class DatabaseRuntime:
 
     def _get_engine(self) -> AsyncEngine:
         if self._engine is None:
-            self._engine = create_app_async_engine(self.database_url)
+            self._engine = _create_app_async_engine(self.database_url)
         return self._engine
