@@ -80,6 +80,14 @@ Worker  →  claim job  →  classify  →  parse  →  PdfRepository
 
 ## Run locally
 
+From the repo root, start API + worker + frontend together:
+
+```bash
+./scripts/dev.sh
+```
+
+Or run backend processes manually:
+
 ```bash
 cd backend
 cp .env.example .env

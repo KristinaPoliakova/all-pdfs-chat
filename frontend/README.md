@@ -32,7 +32,23 @@ The backend requires a **Bearer token** on all PDF endpoints. The frontend uses 
 3. After login, users return to where they were (`?returnTo=...`)
 4. Header shows Sign in / Register when logged out; email + Sign out when logged in
 
-## Local development (three terminals)
+## Local development
+
+**One terminal (recommended):**
+
+```bash
+./scripts/dev.sh
+```
+
+Setup only (env files + dependencies, no servers):
+
+```bash
+./scripts/dev.sh --setup-only
+```
+
+See [scripts/README.md](../scripts/README.md) for details.
+
+**Manual (three terminals):**
 
 ```bash
 # Terminal 1 — API
