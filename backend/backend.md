@@ -99,9 +99,9 @@ uv run python -m app.worker             # terminal 2 — background processing
 | `POST` | `/api/v1/auth/login` | Sign in. **200** + bearer token |
 | `POST` | `/api/v1/auth/logout` | Revoke session (Bearer token). **204** |
 | `GET` | `/api/v1/auth/me` | Current user (Bearer token). **200** |
-| `POST` | `/api/v1/pdfs` | Upload PDF (multipart field `file`). **201** + `Location: /api/v1/pdfs/{id}` |
-| `GET` | `/api/v1/pdfs/{id}` | Document record + **`processing_status`** |
-| `GET` | `/api/v1/pdfs/{id}/pages` | Per-page classification (empty until worker runs) |
+| `POST` | `/api/v1/pdfs` | Upload PDF (multipart field `file`, **Bearer token required**). **201** + `Location: /api/v1/pdfs/{id}` |
+| `GET` | `/api/v1/pdfs/{id}` | Document record + **`processing_status`** (**Bearer token**, owner only) |
+| `GET` | `/api/v1/pdfs/{id}/pages` | Per-page classification (**Bearer token**, owner only) |
 
 **Upload response:** `PdfDocumentResponse`
 
@@ -109,10 +109,11 @@ uv run python -m app.worker             # terminal 2 — background processing
 
 There is **no** server-side “wait until ready” or push (WebSocket/SSE). Progress is **pull-based**:
 
-1. `POST` upload → get `id`.
-2. Poll `GET /api/v1/pdfs/{id}` every 1–2s until `processing_status` reaches the state you need.
-3. When classified (or later): `GET /api/v1/pdfs/{id}/pages` for page classes.
-4. When `parsed`: text extracts are in the database (no GET endpoint yet); safe to enable chat/RAG.
+1. Register/login → obtain bearer token.
+2. `POST` upload with `Authorization: Bearer <token>` → get `id`.
+3. Poll `GET /api/v1/pdfs/{id}` every 1–2s until `processing_status` reaches the state you need.
+4. When classified (or later): `GET /api/v1/pdfs/{id}/pages` for page classes.
+5. When `parsed`: text extracts are in the database (no GET endpoint yet); safe to enable chat/RAG.
 
 Typical terminal statuses: `classified`, `parsed`, `classification_failed`, `parsing_failed`.
 
