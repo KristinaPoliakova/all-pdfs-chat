@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
 from app.api.deps import get_pdf_repository, get_pdf_upload_service
+from app.auth.deps import get_current_user
 from app.pdf_repository.protocol import PdfRepository
 from app.schemas.pdf import (
     PdfDocumentResponse,
@@ -11,6 +12,7 @@ from app.schemas.pdf import (
     page_summaries_from_results,
 )
 from app.services.pdf_upload import PdfUploadService
+from app.user_repository.protocol import UserRecord
 
 router = APIRouter(prefix="/pdfs", tags=["pdfs"])
 
@@ -28,10 +30,11 @@ def _pdf_location(pdf_id: str) -> str:
 async def upload_pdf(
     response: Response,
     file: UploadFile = File(...),
+    current_user: UserRecord = Depends(get_current_user),
     service: PdfUploadService = Depends(get_pdf_upload_service),
 ) -> PdfDocumentResponse:
     try:
-        result = await service.upload(file)
+        result = await service.upload(file, user_id=current_user.id)
     finally:
         await file.close()
     response.headers["Location"] = _pdf_location(result.record.id)
@@ -41,10 +44,11 @@ async def upload_pdf(
 @router.get("/{pdf_id}", response_model=PdfDocumentResponse, response_model_exclude_none=True)
 async def get_pdf(
     pdf_id: str,
+    current_user: UserRecord = Depends(get_current_user),
     pdf_repository: PdfRepository = Depends(get_pdf_repository),
 ) -> PdfDocumentResponse:
     try:
-        record = await pdf_repository.get(pdf_id)
+        record = await pdf_repository.get_for_user(pdf_id, current_user.id)
     except LookupError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -60,10 +64,11 @@ async def get_pdf(
 )
 async def get_pdf_pages(
     pdf_id: str,
+    current_user: UserRecord = Depends(get_current_user),
     pdf_repository: PdfRepository = Depends(get_pdf_repository),
 ) -> PdfPagesResponse:
     try:
-        await pdf_repository.get(pdf_id)
+        await pdf_repository.get_for_user(pdf_id, current_user.id)
     except LookupError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
