@@ -2,6 +2,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const PDF_ID = 'e2e-test-pdf-id';
+const AUTH_TOKEN = 'e2e-test-token';
 const FIXTURE_PDF = path.join(process.cwd(), 'tests/fixtures/sample.pdf');
 
 type PdfProcessingStatus =
@@ -20,6 +21,7 @@ interface PdfDocument {
   created_at: string;
   processing_status: PdfProcessingStatus;
 }
+
 function mockDocument(status: PdfProcessingStatus): PdfDocument {
   return {
     id: PDF_ID,
@@ -30,19 +32,48 @@ function mockDocument(status: PdfProcessingStatus): PdfDocument {
   };
 }
 
+function hasBearerAuth(request: { headers: () => Record<string, string> }): boolean {
+  const auth = request.headers()['authorization'] ?? request.headers()['Authorization'];
+  return auth === `Bearer ${AUTH_TOKEN}`;
+}
+
 test.describe('upload → poll → chat (mocked API)', () => {
   test('uploads PDF, polls until Ready, then stub chat replies', async ({ page }) => {
-    const pollStatuses: PdfProcessingStatus[] = [
-      'uploaded',
-      'classifying',
-      'parsing',
-      'parsed',
-    ];
-    let getCount = 0;
+    await page.addInitScript((token) => {
+      localStorage.setItem('all_pdfs_chat_token', token);
+    }, AUTH_TOKEN);
+
+    await page.route('**/api/v1/auth/me', async (route) => {
+      if (!hasBearerAuth(route.request())) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Unauthorized' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'user-1',
+          email: 'e2e@example.com',
+          created_at: '2026-05-22T12:00:00.000Z',
+        }),
+      });
+    });
 
     await page.route('**/api/v1/pdfs', async (route) => {
       if (route.request().method() !== 'POST') {
         await route.continue();
+        return;
+      }
+      if (!hasBearerAuth(route.request())) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Unauthorized' }),
+        });
         return;
       }
       await route.fulfill({
@@ -52,9 +83,25 @@ test.describe('upload → poll → chat (mocked API)', () => {
       });
     });
 
+    const pollStatuses: PdfProcessingStatus[] = [
+      'uploaded',
+      'classifying',
+      'parsing',
+      'parsed',
+    ];
+    let getCount = 0;
+
     await page.route(`**/api/v1/pdfs/${PDF_ID}`, async (route) => {
       if (route.request().method() !== 'GET') {
         await route.continue();
+        return;
+      }
+      if (!hasBearerAuth(route.request())) {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Unauthorized' }),
+        });
         return;
       }
       const status = pollStatuses[Math.min(getCount, pollStatuses.length - 1)];
@@ -67,6 +114,8 @@ test.describe('upload → poll → chat (mocked API)', () => {
     });
 
     await page.goto('/');
+
+    await expect(page.getByText('e2e@example.com')).toBeVisible({ timeout: 10_000 });
 
     await page.locator('input[type="file"]').setInputFiles(FIXTURE_PDF);
 

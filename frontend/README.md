@@ -23,6 +23,15 @@ cp .env.local.example .env.local
 
 Requests from the browser go to `/api/v1/*` on the Next dev server; `next.config.ts` rewrites those paths to `BACKEND_URL`.
 
+## Authentication
+
+The backend requires a **Bearer token** on all PDF endpoints. The frontend uses **lazy auth**:
+
+1. The upload page is visible without signing in
+2. Upload or document fetch returns **401** → inline prompt with Sign in / Register links
+3. After login, users return to where they were (`?returnTo=...`)
+4. Header shows Sign in / Register when logged out; email + Sign out when logged in
+
 ## Local development (three terminals)
 
 ```bash
@@ -53,7 +62,7 @@ Chat is a **client-side stub** (`src/lib/chat/stub-chat.ts`) until a real chat A
 
 ### E2E without backend
 
-Playwright tests intercept `/api/v1/pdfs` and `/api/v1/pdfs/*` in the test file itself, so CI and local E2E runs do not need the API or worker:
+Playwright tests intercept `/api/v1/auth/me` and `/api/v1/pdfs` routes in the test file itself, seeding a mock bearer token in `localStorage`, so CI and local E2E runs do not need the API or worker:
 
 ```bash
 npx playwright install chromium   # first time only
@@ -62,7 +71,9 @@ npx playwright test
 
 ## Project layout
 
-- `src/app/` — routes (`/` upload, `/pdfs/[id]` status + chat)
-- `src/lib/api/` — typed fetch helpers
+- `src/app/` — routes (`/` upload, `/login`, `/register`, `/pdfs/[id]` status + chat)
+- `src/lib/api/` — typed fetch helpers (auth + PDFs)
+- `src/lib/auth/` — token session storage
+- `src/contexts/` — `AuthProvider`
 - `tests/unit/` — Vitest + Testing Library
 - `tests/e2e/` — Playwright (mocked API)
