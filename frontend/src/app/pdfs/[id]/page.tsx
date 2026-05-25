@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ChatPanel } from '@/components/chat/ChatPanel';
+import { SignInPrompt } from '@/components/auth/SignInPrompt';
 import { AppShell } from '@/components/layout/AppShell';
 import { PdfStatusCard } from '@/components/pdf/PdfStatusCard';
+import { useAuth } from '@/hooks/useAuth';
 import { usePdfDocument } from '@/hooks/usePdfDocument';
+import { getAuthToken } from '@/lib/auth/session';
 import { ApiError } from '@/lib/api/errors';
 import { isChatEnabled } from '@/lib/processing-status';
 
@@ -22,7 +25,10 @@ function StatusSkeleton() {
 export default function PdfDetailPage() {
   const params = useParams();
   const id = typeof params.id === 'string' ? params.id : '';
+  const { isLoading: authLoading } = useAuth();
+  const hasSession = Boolean(getAuthToken());
   const { data, isPending, isError, error } = usePdfDocument(id);
+  const returnTo = id ? `/pdfs/${id}` : '/';
 
   if (!id) {
     return (
@@ -35,10 +41,43 @@ export default function PdfDetailPage() {
     );
   }
 
+  if (authLoading) {
+    return (
+      <AppShell>
+        <StatusSkeleton />
+      </AppShell>
+    );
+  }
+
+  if (!hasSession) {
+    return (
+      <AppShell>
+        <SignInPrompt message="Sign in to view this document." returnTo={returnTo} />
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
+          Back to upload
+        </Link>
+      </AppShell>
+    );
+  }
+
   if (isPending) {
     return (
       <AppShell>
         <StatusSkeleton />
+      </AppShell>
+    );
+  }
+
+  if (isError && error instanceof ApiError && error.status === 401) {
+    return (
+      <AppShell>
+        <SignInPrompt
+          message="Your session expired. Sign in again to view this document."
+          returnTo={returnTo}
+        />
+        <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
+          Back to upload
+        </Link>
       </AppShell>
     );
   }
