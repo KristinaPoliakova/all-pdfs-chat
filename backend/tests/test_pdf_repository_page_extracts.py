@@ -22,6 +22,7 @@ def _page_result(page_number: int, *, page_class: PageClass) -> PageClassificati
 async def test_save_page_extracts_persists_content() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -55,6 +56,7 @@ async def test_save_page_extracts_persists_content() -> None:
 async def test_save_page_extracts_replaces_existing_rows() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -92,6 +94,7 @@ async def test_sql_store_persists_page_extracts() -> None:
     runtime = await open_test_database()
     store = make_sql_pdf_repository(runtime)
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,

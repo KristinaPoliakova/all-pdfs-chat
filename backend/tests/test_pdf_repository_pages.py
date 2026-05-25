@@ -32,6 +32,7 @@ async def test_create_defaults_processing_status_to_uploaded() -> None:
     store = InMemoryPdfRepository()
 
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -46,6 +47,7 @@ async def test_create_defaults_processing_status_to_uploaded() -> None:
 async def test_set_processing_status_updates_record() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -67,6 +69,7 @@ async def test_set_processing_status_updates_record() -> None:
 async def test_set_processing_status_parsing_failed_sets_parsing_error() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -88,6 +91,7 @@ async def test_set_processing_status_parsing_failed_sets_parsing_error() -> None
 async def test_set_processing_status_parsed_sets_parsed_at() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -104,6 +108,7 @@ async def test_set_processing_status_parsed_sets_parsed_at() -> None:
 async def test_save_page_classifications_persists_pages() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -138,6 +143,7 @@ async def test_save_page_classifications_persists_pages() -> None:
 async def test_save_page_classifications_replaces_existing_pages() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -165,6 +171,7 @@ async def test_save_page_classifications_replaces_existing_pages() -> None:
 async def test_get_pages_returns_empty_for_document_without_pages() -> None:
     store = InMemoryPdfRepository()
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
@@ -179,6 +186,7 @@ async def test_sql_store_persists_pages_and_status() -> None:
     store = make_sql_pdf_repository(runtime)
 
     record = await store.create(
+        user_id="user-1",
         filename="doc.pdf",
         storage_key="pdfs/uuid-doc.pdf",
         size_bytes=100,
