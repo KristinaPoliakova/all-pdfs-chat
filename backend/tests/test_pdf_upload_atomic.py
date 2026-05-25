@@ -34,7 +34,7 @@ async def test_metadata_not_saved_when_storage_upload_fails() -> None:
     )
 
     with pytest.raises(OSError, match="disk full"):
-        await service.upload(_pdf_upload_file())
+        await service.upload(_pdf_upload_file(), user_id="user-1")
 
     metadata.create.assert_not_called()
 
@@ -62,6 +62,6 @@ async def test_storage_removed_when_metadata_save_fails(
     )
 
     with pytest.raises(RuntimeError, match="db unavailable"):
-        await service.upload(_pdf_upload_file())
+        await service.upload(_pdf_upload_file(), user_id="user-1")
 
     assert not storage.exists(storage_key)

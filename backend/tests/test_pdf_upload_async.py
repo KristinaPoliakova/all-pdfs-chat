@@ -15,12 +15,14 @@ PDF_BYTES = b"%PDF-1.4\n" + b"0" * 55
 @pytest.mark.asyncio
 async def test_upload_returns_uploaded_without_pages_field(
     api_client: AsyncClient,
+    auth_headers: dict[str, str],
     drain_pdf_jobs: object,
 ) -> None:
     pdf_bytes = make_text_pdf_bytes(pages=2)
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", pdf_bytes, "application/pdf")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 201
@@ -33,6 +35,7 @@ async def test_upload_returns_uploaded_without_pages_field(
 @pytest.mark.asyncio
 async def test_upload_then_worker_classifies_pages(
     api_client: AsyncClient,
+    auth_headers: dict[str, str],
     pdf_repository: object,
     job_queue: object,
     drain_pdf_jobs: object,
@@ -41,39 +44,43 @@ async def test_upload_then_worker_classifies_pages(
     upload = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", pdf_bytes, "application/pdf")},
+        headers=auth_headers,
     )
     pdf_id = upload.json()["id"]
 
     await drain_pdf_jobs()
 
-    doc = await api_client.get(f"/api/v1/pdfs/{pdf_id}")
+    doc = await api_client.get(f"/api/v1/pdfs/{pdf_id}", headers=auth_headers)
     assert doc.json()["processing_status"] == PdfProcessingStatus.PARSED.value
-    pages = await api_client.get(f"/api/v1/pdfs/{pdf_id}/pages")
+    pages = await api_client.get(f"/api/v1/pdfs/{pdf_id}/pages", headers=auth_headers)
     assert len(pages.json()["pages"]) == 2
 
 
 @pytest.mark.asyncio
 async def test_upload_classification_failure_after_worker(
     api_client: AsyncClient,
+    auth_headers: dict[str, str],
     drain_pdf_jobs: object,
 ) -> None:
     upload = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("broken.pdf", PDF_BYTES, "application/pdf")},
+        headers=auth_headers,
     )
     pdf_id = upload.json()["id"]
 
     await drain_pdf_jobs()
 
-    doc = await api_client.get(f"/api/v1/pdfs/{pdf_id}")
+    doc = await api_client.get(f"/api/v1/pdfs/{pdf_id}", headers=auth_headers)
     assert doc.json()["processing_status"] == PdfProcessingStatus.CLASSIFICATION_FAILED.value
-    pages = await api_client.get(f"/api/v1/pdfs/{pdf_id}/pages")
+    pages = await api_client.get(f"/api/v1/pdfs/{pdf_id}/pages", headers=auth_headers)
     assert pages.json()["pages"] == []
 
 
 @pytest.mark.asyncio
 async def test_upload_skips_job_when_classification_disabled(
     api_client: AsyncClient,
+    auth_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
     job_queue: object,
 ) -> None:
@@ -83,6 +90,7 @@ async def test_upload_skips_job_when_classification_disabled(
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", make_text_pdf_bytes(), "application/pdf")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 201

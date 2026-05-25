@@ -18,6 +18,7 @@ OVERSIZED_BYTES = b"x" * 101
 @pytest.mark.asyncio
 async def test_upload_pdf_returns_metadata_and_stores_file(
     api_client: AsyncClient,
+    auth_headers: dict[str, str],
     file_storage: InMemoryFileStorage,
     pdf_repository: InMemoryPdfRepository,
     drain_pdf_jobs: object,
@@ -26,6 +27,7 @@ async def test_upload_pdf_returns_metadata_and_stores_file(
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", pdf_bytes, "application/pdf")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 201
@@ -50,10 +52,14 @@ async def test_upload_pdf_returns_metadata_and_stores_file(
 
 
 @pytest.mark.asyncio
-async def test_upload_rejects_non_pdf_content_type(api_client: AsyncClient) -> None:
+async def test_upload_rejects_non_pdf_content_type(
+    api_client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("notes.txt", b"hello", "text/plain")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 415
@@ -63,6 +69,7 @@ async def test_upload_rejects_non_pdf_content_type(api_client: AsyncClient) -> N
 @pytest.mark.asyncio
 async def test_upload_rejects_file_exceeding_max_size(
     api_client: AsyncClient,
+    auth_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("MAX_UPLOAD_SIZE_BYTES", "100")
@@ -71,6 +78,7 @@ async def test_upload_rejects_file_exceeding_max_size(
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("big.pdf", OVERSIZED_BYTES, "application/pdf")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 413
@@ -78,10 +86,14 @@ async def test_upload_rejects_file_exceeding_max_size(
 
 
 @pytest.mark.asyncio
-async def test_upload_rejects_too_small_pdf(api_client: AsyncClient) -> None:
+async def test_upload_rejects_too_small_pdf(
+    api_client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("tiny.pdf", b"%PDF", "application/pdf")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 400
@@ -89,7 +101,10 @@ async def test_upload_rejects_too_small_pdf(api_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_upload_rejects_missing_file(api_client: AsyncClient) -> None:
-    response = await api_client.post("/api/v1/pdfs")
+async def test_upload_rejects_missing_file(
+    api_client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    response = await api_client.post("/api/v1/pdfs", headers=auth_headers)
 
     assert response.status_code == 422
