@@ -15,7 +15,6 @@ from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.lifecycle import close_database, init_database
-from app.db.sqlite_paths import ensure_sqlite_writable
 from app.db.startup_errors import format_database_startup_error
 from app.jobs.factory import create_job_queue, reset_job_queue_state
 from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
@@ -30,9 +29,6 @@ logger = logging.getLogger(__name__)
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
-
-    if settings.is_dev:
-        ensure_sqlite_writable(settings.database_url)
 
     try:
         await init_database()

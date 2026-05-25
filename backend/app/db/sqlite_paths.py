@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import stat
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -43,41 +41,3 @@ def ensure_sqlite_parent_dir(database_url: str) -> None:
     db_path = sqlite_file_path(database_url)
     if db_path is not None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
-
-
-def ensure_sqlite_writable(database_url: str) -> None:
-    """Fail fast with a clear message when the SQLite file or directory is not writable."""
-    db_path = sqlite_file_path(database_url)
-    if db_path is None:
-        return
-
-    parent = db_path.parent
-    if not parent.exists():
-        parent.mkdir(parents=True, exist_ok=True)
-
-    if not os.access(parent, os.W_OK):
-        msg = (
-            f"SQLite directory is not writable: {parent}. "
-            "Fix permissions or set DATABASE_URL to a writable path."
-        )
-        raise RuntimeError(msg)
-
-    if db_path.exists() and not os.access(db_path, os.W_OK):
-        msg = (
-            f"SQLite database file is not writable: {db_path}. "
-            "Run: chmod u+w <file> or delete the file and restart."
-        )
-        raise RuntimeError(msg)
-
-    if db_path.exists() and not db_path.is_file():
-        msg = f"SQLite database path is not a file: {db_path}"
-        raise RuntimeError(msg)
-
-    if db_path.exists():
-        mode = db_path.stat().st_mode
-        if not (mode & stat.S_IWUSR):
-            msg = (
-                f"SQLite database file lacks owner write permission: {db_path} "
-                f"(mode={oct(mode & 0o777)}). Run: chmod u+w {db_path}"
-            )
-            raise RuntimeError(msg)

@@ -1,11 +1,5 @@
-from pathlib import Path
-
 from app.config.settings import _BACKEND_ROOT, Settings
-from app.db.sqlite_paths import (
-    ensure_sqlite_writable,
-    resolve_sqlite_database_url,
-    sqlite_file_path,
-)
+from app.db.sqlite_paths import resolve_sqlite_database_url, sqlite_file_path
 
 
 def test_resolve_sqlite_database_url_anchors_relative_path_to_backend_root() -> None:
@@ -26,10 +20,3 @@ def test_settings_resolves_dev_database_url_to_absolute_path() -> None:
     )
 
     assert sqlite_file_path(settings.database_url) == (_BACKEND_ROOT / "data" / "app.db").resolve()
-
-
-def test_ensure_sqlite_writable_passes_for_writable_file(tmp_path: Path) -> None:
-    db_file = tmp_path / "app.db"
-    db_file.write_bytes(b"")
-
-    ensure_sqlite_writable(f"sqlite+aiosqlite:///{db_file}")

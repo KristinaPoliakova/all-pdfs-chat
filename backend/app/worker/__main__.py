@@ -10,7 +10,6 @@ from app.classification.service import PdfClassificationService
 from app.config.settings import get_settings
 from app.core.logging import configure_logging
 from app.db.lifecycle import close_database, init_database
-from app.db.sqlite_paths import ensure_sqlite_writable
 from app.jobs.factory import create_job_queue, reset_job_queue_state
 from app.parsing.factory import create_document_parser
 from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
@@ -23,9 +22,6 @@ logger = logging.getLogger(__name__)
 async def run_worker() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
-
-    if settings.is_dev:
-        ensure_sqlite_writable(settings.database_url)
 
     await init_database()
     pdf_repository = create_pdf_repository()
