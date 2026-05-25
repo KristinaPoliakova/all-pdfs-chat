@@ -11,7 +11,7 @@ export default function Home() {
   return (
     <AppShell>
       <UploadDropzone upload={upload} />
-      <UploadErrorAlert error={upload.error} />
+      <UploadErrorAlert error={upload.error} returnTo="/" />
     </AppShell>
   );
 }
