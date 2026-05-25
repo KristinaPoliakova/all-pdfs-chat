@@ -11,6 +11,7 @@ from app.parsing.types import PageExtract
 @dataclass(frozen=True, slots=True)
 class PdfRecord:
     id: str
+    user_id: str
     filename: str
     storage_key: str
     size_bytes: int
@@ -27,6 +28,7 @@ class PdfRepository(Protocol):
     async def create(
         self,
         *,
+        user_id: str,
         filename: str,
         storage_key: str,
         size_bytes: int,
@@ -51,6 +53,8 @@ class PdfRepository(Protocol):
     ) -> None: ...
 
     async def get(self, pdf_id: str) -> PdfRecord: ...
+
+    async def get_for_user(self, pdf_id: str, user_id: str) -> PdfRecord: ...
 
     async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]: ...
 
