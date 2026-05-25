@@ -8,10 +8,25 @@ export class ApiError extends Error {
   }
 }
 
+export function authErrorMessage(err: ApiError): string {
+  switch (err.status) {
+    case 400:
+      return err.detail;
+    case 401:
+      return 'Please sign in to continue.';
+    case 409:
+      return 'An account with this email already exists.';
+    default:
+      return 'Authentication failed. Please try again.';
+  }
+}
+
 export function uploadErrorMessage(err: ApiError): string {
   switch (err.status) {
     case 400:
       return err.detail;
+    case 401:
+      return 'Please sign in to continue.';
     case 413:
       return 'File is too large. Maximum size is 10 MB.';
     case 415:
