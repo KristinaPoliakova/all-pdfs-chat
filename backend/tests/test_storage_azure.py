@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from app.storage.azure import AzureBlobStorage
+from app.infrastructure.storage.azure import AzureBlobStorage
 from azure.core.exceptions import ResourceNotFoundError
 
 
@@ -19,7 +19,7 @@ def container_client(blob_client: MagicMock) -> MagicMock:
 
 @pytest.fixture
 def storage(container_client: MagicMock) -> AzureBlobStorage:
-    with patch("app.storage.azure.BlobServiceClient") as service_ctor:
+    with patch("app.infrastructure.storage.azure.BlobServiceClient") as service_ctor:
         service = MagicMock()
         service.get_container_client.return_value = container_client
         service_ctor.from_connection_string.return_value = service

@@ -4,10 +4,10 @@ from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from app.application.services.pdf_upload import PdfUploadService
 from app.config.settings import Settings
-from app.jobs.memory import InMemoryJobQueue
-from app.services.pdf_upload import PdfUploadService
-from app.storage.memory import InMemoryFileStorage
+from app.infrastructure.persistence.memory.jobs import InMemoryJobQueue
+from app.infrastructure.storage.memory import InMemoryFileStorage
 from fastapi import UploadFile
 
 
@@ -45,7 +45,7 @@ async def test_storage_removed_when_metadata_save_fails(
 ) -> None:
     storage_key = "pdfs/fixed-key-report.pdf"
     monkeypatch.setattr(
-        "app.services.pdf_upload.build_storage_key",
+        "app.application.services.pdf_upload.build_storage_key",
         lambda _filename: storage_key,
     )
 

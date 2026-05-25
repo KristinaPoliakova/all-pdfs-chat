@@ -3,16 +3,16 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
 from app.api.deps import get_pdf_repository, get_pdf_upload_service
-from app.auth.deps import get_current_user
-from app.pdf_repository.protocol import PdfRepository
+from app.application.auth.deps import get_current_user
+from app.application.ports.pdf import PdfRepository
+from app.application.ports.users import UserRecord
+from app.application.services.pdf_upload import PdfUploadService
 from app.schemas.pdf import (
     PdfDocumentResponse,
     PdfPagesResponse,
     document_response_from_record,
     page_summaries_from_results,
 )
-from app.services.pdf_upload import PdfUploadService
-from app.user_repository.protocol import UserRecord
 
 router = APIRouter(prefix="/pdfs", tags=["pdfs"])
 

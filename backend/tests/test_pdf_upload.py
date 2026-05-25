@@ -5,8 +5,8 @@ import uuid
 import pytest
 from app.classification.types import PdfProcessingStatus
 from app.config.settings import get_settings
-from app.pdf_repository.memory import InMemoryPdfRepository
-from app.storage.memory import InMemoryFileStorage
+from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
+from app.infrastructure.storage.memory import InMemoryFileStorage
 from httpx import AsyncClient
 
 from tests.pdf_fixtures import make_text_pdf_bytes

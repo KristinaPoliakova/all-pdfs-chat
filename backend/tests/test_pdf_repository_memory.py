@@ -1,5 +1,5 @@
 import pytest
-from app.pdf_repository.memory import InMemoryPdfRepository
+from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
 
 
 @pytest.mark.asyncio

@@ -9,7 +9,7 @@ from app.classification.types import (
     PageClassificationResult,
     PdfProcessingStatus,
 )
-from app.pdf_repository.memory import InMemoryPdfRepository
+from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
 
 from tests.db_helpers import make_sql_pdf_repository, open_test_database
 

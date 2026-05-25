@@ -2,8 +2,11 @@ from unittest.mock import patch
 
 import pytest
 from app.config.settings import Settings
-from app.db.repositories.sessions import SqlSessionRepository
-from app.session_repository.factory import create_session_repository, reset_session_repository_state
+from app.infrastructure.factories.sessions import (
+    create_session_repository,
+    reset_session_repository_state,
+)
+from app.infrastructure.persistence.sql.repositories.sessions import SqlSessionRepository
 
 
 @pytest.fixture(autouse=True)
@@ -15,7 +18,7 @@ async def _reset_factory() -> None:
 
 @pytest.mark.asyncio
 async def test_factory_returns_cached_singleton() -> None:
-    with patch("app.db.lifecycle.get_settings") as get_settings:
+    with patch("app.infrastructure.persistence.sql.lifecycle.get_settings") as get_settings:
         get_settings.return_value = Settings(app_env="dev", _env_file=None)
         first = create_session_repository()
         second = create_session_repository()

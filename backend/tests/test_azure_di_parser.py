@@ -7,12 +7,12 @@ import pytest
 from app.classification.service import PdfClassificationService
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
 from app.config.settings import Settings
+from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
+from app.infrastructure.storage.memory import InMemoryFileStorage
 from app.parsing.azure_di import AzureDocumentIntelligenceParser, format_azure_pages_parameter
 from app.parsing.composite import CompositeDocumentParser
 from app.parsing.factory import create_document_parser
 from app.parsing.types import PageExtract
-from app.pdf_repository.memory import InMemoryPdfRepository
-from app.storage.memory import InMemoryFileStorage
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
 from tests.pdf_fixtures import make_text_pdf_bytes

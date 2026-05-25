@@ -9,11 +9,11 @@ import socket
 from app.classification.service import PdfClassificationService
 from app.config.settings import get_settings
 from app.core.logging import configure_logging
-from app.db.lifecycle import close_database, init_database
-from app.jobs.factory import create_job_queue, reset_job_queue_state
+from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
+from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
+from app.infrastructure.factories.storage import create_file_storage, reset_file_storage_state
+from app.infrastructure.persistence.sql.lifecycle import close_database, init_database
 from app.parsing.factory import create_document_parser
-from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
-from app.storage.factory import create_file_storage, reset_file_storage_state
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 
 logger = logging.getLogger(__name__)

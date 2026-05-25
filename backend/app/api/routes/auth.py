@@ -3,11 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.auth.deps import get_auth_service, get_current_user
-from app.auth.exceptions import InvalidCredentialsError, UserAlreadyExistsError
-from app.auth.service import AuthResult, AuthService
+from app.application.auth.deps import get_auth_service, get_current_user
+from app.application.auth.exceptions import InvalidCredentialsError, UserAlreadyExistsError
+from app.application.auth.service import AuthResult, AuthService
+from app.application.ports.users import UserRecord
 from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest, UserResponse
-from app.user_repository.protocol import UserRecord
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _bearer = HTTPBearer(auto_error=False)

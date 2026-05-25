@@ -1,5 +1,8 @@
 from app.config.settings import _BACKEND_ROOT, Settings
-from app.db.sqlite_paths import resolve_sqlite_database_url, sqlite_file_path
+from app.infrastructure.persistence.sql.sqlite_paths import (
+    resolve_sqlite_database_url,
+    sqlite_file_path,
+)
 
 
 def test_resolve_sqlite_database_url_anchors_relative_path_to_backend_root() -> None:

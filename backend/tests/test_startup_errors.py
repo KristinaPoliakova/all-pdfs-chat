@@ -1,4 +1,4 @@
-from app.db.startup_errors import format_database_startup_error
+from app.infrastructure.persistence.sql.startup_errors import format_database_startup_error
 from sqlalchemy.exc import OperationalError
 
 

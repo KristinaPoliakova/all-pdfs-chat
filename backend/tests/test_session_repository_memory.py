@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.session_repository.memory import InMemorySessionRepository
+from app.infrastructure.persistence.memory.sessions import InMemorySessionRepository
 
 
 @pytest.mark.asyncio

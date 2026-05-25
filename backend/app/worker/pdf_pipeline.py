@@ -4,12 +4,12 @@ import asyncio
 import logging
 import time
 
+from app.application.ports.pdf import PdfRecord, PdfRepository
+from app.application.ports.storage import FileStorage
 from app.classification.service import PdfClassificationService
 from app.classification.types import PageClassificationResult, PdfProcessingStatus
 from app.config.settings import Settings
 from app.parsing.protocol import DocumentParser
-from app.pdf_repository.protocol import PdfRecord, PdfRepository
-from app.storage.protocol import FileStorage
 
 logger = logging.getLogger(__name__)
 

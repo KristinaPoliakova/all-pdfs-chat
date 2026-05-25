@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 import pytest
 from app.config.settings import LOCAL_STORAGE_PATH, Settings
-from app.storage.factory import create_file_storage
-from app.storage.local import LocalFileStorage
+from app.infrastructure.factories.storage import create_file_storage
+from app.infrastructure.storage.local import LocalFileStorage
 
 
 def test_factory_uses_local_for_dev_settings() -> None:
@@ -24,7 +24,7 @@ def test_factory_uses_azure_for_prod_settings() -> None:
         _env_file=None,
     )
 
-    with patch("app.storage.azure.BlobServiceClient"):
+    with patch("app.infrastructure.storage.azure.BlobServiceClient"):
         storage = create_file_storage(settings)
 
     assert storage.__class__.__name__ == "AzureBlobStorage"

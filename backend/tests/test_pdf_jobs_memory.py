@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.jobs.memory import InMemoryJobQueue
-from app.jobs.protocol import JobStatus
+from app.application.ports.jobs import JobStatus
+from app.infrastructure.persistence.memory.jobs import InMemoryJobQueue
 
 
 @pytest.mark.asyncio

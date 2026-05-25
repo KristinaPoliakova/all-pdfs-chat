@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.application.ports.pdf import PdfRecord
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
-from app.pdf_repository.protocol import PdfRecord
 from app.schemas.datetime import UtcDateTime
 
 

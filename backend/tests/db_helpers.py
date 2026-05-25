@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from app.db.repositories.jobs import SqlJobQueue
-from app.db.repositories.pdf import SqlPdfRepository
-from app.db.repositories.sessions import SqlSessionRepository
-from app.db.repositories.users import SqlUserRepository
-from app.db.runtime import DatabaseRuntime
+from app.infrastructure.persistence.sql.repositories.jobs import SqlJobQueue
+from app.infrastructure.persistence.sql.repositories.pdf import SqlPdfRepository
+from app.infrastructure.persistence.sql.repositories.sessions import SqlSessionRepository
+from app.infrastructure.persistence.sql.repositories.users import SqlUserRepository
+from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
 
 
 async def open_test_database(url: str = "sqlite+aiosqlite:///:memory:") -> DatabaseRuntime:

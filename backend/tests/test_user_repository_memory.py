@@ -1,5 +1,5 @@
 import pytest
-from app.user_repository.memory import InMemoryUserRepository
+from app.infrastructure.persistence.memory.users import InMemoryUserRepository
 
 
 @pytest.mark.asyncio

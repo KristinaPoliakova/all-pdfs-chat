@@ -1,4 +1,4 @@
-from app.storage.memory import InMemoryFileStorage
+from app.infrastructure.storage.memory import InMemoryFileStorage
 
 
 def test_upload_and_download_round_trip() -> None:

@@ -2,11 +2,15 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.auth.exceptions import InvalidCredentialsError, InvalidSessionError, UserAlreadyExistsError
-from app.auth.service import AuthService
-from app.auth.tokens import hash_session_token
-from app.session_repository.memory import InMemorySessionRepository
-from app.user_repository.memory import InMemoryUserRepository
+from app.application.auth.exceptions import (
+    InvalidCredentialsError,
+    InvalidSessionError,
+    UserAlreadyExistsError,
+)
+from app.application.auth.service import AuthService
+from app.application.auth.tokens import hash_session_token
+from app.infrastructure.persistence.memory.sessions import InMemorySessionRepository
+from app.infrastructure.persistence.memory.users import InMemoryUserRepository
 
 from tests.settings_helpers import make_test_settings
 

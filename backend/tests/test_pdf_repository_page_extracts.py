@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 from app.classification.types import PageClass, PageClassificationResult
+from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
 from app.parsing.types import PageExtract
-from app.pdf_repository.memory import InMemoryPdfRepository
 
 from tests.db_helpers import make_sql_pdf_repository, open_test_database
 

@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 import pytest
 from app.config.settings import _BACKEND_ROOT, Settings
-from app.db.lifecycle import get_database
-from app.db.repositories.users import SqlUserRepository
-from app.db.sqlite_paths import sqlite_file_path
-from app.user_repository.factory import create_user_repository, reset_user_repository_state
+from app.infrastructure.factories.users import create_user_repository, reset_user_repository_state
+from app.infrastructure.persistence.sql.lifecycle import get_database
+from app.infrastructure.persistence.sql.repositories.users import SqlUserRepository
+from app.infrastructure.persistence.sql.sqlite_paths import sqlite_file_path
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +34,7 @@ async def test_factory_uses_sqlite_url_for_dev() -> None:
 
 @pytest.mark.asyncio
 async def test_factory_returns_cached_singleton() -> None:
-    with patch("app.db.lifecycle.get_settings") as get_settings:
+    with patch("app.infrastructure.persistence.sql.lifecycle.get_settings") as get_settings:
         get_settings.return_value = Settings(app_env="dev", _env_file=None)
         first = create_user_repository()
         second = create_user_repository()

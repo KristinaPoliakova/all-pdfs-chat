@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.jobs.protocol import JobStatus
+from app.application.ports.jobs import JobStatus
 
 from tests.db_helpers import make_sql_job_queue, open_test_database
 

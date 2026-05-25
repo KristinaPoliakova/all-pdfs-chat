@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi import Depends
 
+from app.application.ports.jobs import JobQueue
+from app.application.ports.pdf import PdfRepository
+from app.application.ports.storage import FileStorage
+from app.application.services.pdf_upload import PdfUploadService
 from app.config.settings import Settings, get_settings
-from app.jobs.factory import create_job_queue
-from app.jobs.protocol import JobQueue
-from app.pdf_repository.factory import create_pdf_repository
-from app.pdf_repository.protocol import PdfRepository
-from app.services.pdf_upload import PdfUploadService
-from app.storage.factory import create_file_storage
-from app.storage.protocol import FileStorage
+from app.infrastructure.factories.jobs import create_job_queue
+from app.infrastructure.factories.pdf import create_pdf_repository
+from app.infrastructure.factories.storage import create_file_storage
 
 
 def get_file_storage() -> FileStorage:

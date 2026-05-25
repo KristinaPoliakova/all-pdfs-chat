@@ -8,19 +8,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
 
-import app.db.models as _db_models  # noqa: F401 - register ORM models with Base.metadata
+import app.infrastructure.persistence.sql.models as _db_models  # noqa: F401 - register ORM models with Base.metadata
 from app.api.router import api_router
 from app.api.routes import health
 from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
-from app.db.lifecycle import close_database, init_database
-from app.db.startup_errors import format_database_startup_error
-from app.jobs.factory import create_job_queue, reset_job_queue_state
-from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
-from app.session_repository.factory import create_session_repository, reset_session_repository_state
-from app.storage.factory import reset_file_storage_state
-from app.user_repository.factory import create_user_repository, reset_user_repository_state
+from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
+from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
+from app.infrastructure.factories.sessions import (
+    create_session_repository,
+    reset_session_repository_state,
+)
+from app.infrastructure.factories.storage import reset_file_storage_state
+from app.infrastructure.factories.users import create_user_repository, reset_user_repository_state
+from app.infrastructure.persistence.sql.lifecycle import close_database, init_database
+from app.infrastructure.persistence.sql.startup_errors import format_database_startup_error
 
 logger = logging.getLogger(__name__)
 

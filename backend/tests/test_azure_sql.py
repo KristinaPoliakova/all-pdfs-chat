@@ -2,12 +2,12 @@ from urllib.parse import unquote_plus
 
 import pytest
 from app.config.settings import Settings, get_settings
-from app.db.azure_sql import (
+from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
+from app.infrastructure.persistence.sql.azure_sql import (
     azure_sql_connectionstring_to_database_url,
     resolve_prod_database_url,
 )
-from app.db.lifecycle import get_database
-from app.pdf_repository.factory import create_pdf_repository, reset_pdf_repository_state
+from app.infrastructure.persistence.sql.lifecycle import get_database
 
 
 @pytest.fixture(autouse=True)

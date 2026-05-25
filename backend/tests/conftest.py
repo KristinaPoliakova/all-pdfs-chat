@@ -2,22 +2,22 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 
 import pytest
 from app.api.deps import get_file_storage, get_job_queue, get_pdf_repository
-from app.auth.deps import get_session_repository, get_user_repository
+from app.application.auth.deps import get_session_repository, get_user_repository
 from app.classification.service import PdfClassificationService
 from app.config.settings import Settings, get_settings
-from app.db.lifecycle import reset_database_state
-from app.jobs.factory import reset_job_queue_state
-from app.jobs.memory import InMemoryJobQueue
+from app.infrastructure.factories.jobs import reset_job_queue_state
+from app.infrastructure.factories.pdf import reset_pdf_repository_state
+from app.infrastructure.factories.sessions import reset_session_repository_state
+from app.infrastructure.factories.storage import reset_file_storage_state
+from app.infrastructure.factories.users import reset_user_repository_state
+from app.infrastructure.persistence.memory.jobs import InMemoryJobQueue
+from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
+from app.infrastructure.persistence.memory.sessions import InMemorySessionRepository
+from app.infrastructure.persistence.memory.users import InMemoryUserRepository
+from app.infrastructure.persistence.sql.lifecycle import reset_database_state
+from app.infrastructure.storage.memory import InMemoryFileStorage
 from app.main import create_app
 from app.parsing.composite import CompositeDocumentParser
-from app.pdf_repository.factory import reset_pdf_repository_state
-from app.pdf_repository.memory import InMemoryPdfRepository
-from app.session_repository.factory import reset_session_repository_state
-from app.session_repository.memory import InMemorySessionRepository
-from app.storage.factory import reset_file_storage_state
-from app.storage.memory import InMemoryFileStorage
-from app.user_repository.factory import reset_user_repository_state
-from app.user_repository.memory import InMemoryUserRepository
 from app.worker.pdf_pipeline import PdfProcessingPipeline
 from httpx import ASGITransport, AsyncClient
 
@@ -109,9 +109,15 @@ async def api_client(
 
     monkeypatch.setattr("app.main.get_settings", _get_test_settings)
     monkeypatch.setattr("app.config.settings.get_settings", _get_test_settings)
-    monkeypatch.setattr("app.db.lifecycle.get_settings", _get_test_settings)
-    monkeypatch.setattr("app.jobs.factory.get_settings", _get_test_settings)
-    monkeypatch.setattr("app.storage.factory.get_settings", _get_test_settings)
+    monkeypatch.setattr(
+        "app.infrastructure.persistence.sql.lifecycle.get_settings",
+        _get_test_settings,
+    )
+    monkeypatch.setattr("app.infrastructure.factories.jobs.get_settings", _get_test_settings)
+    monkeypatch.setattr(
+        "app.infrastructure.factories.storage.get_settings",
+        _get_test_settings,
+    )
 
     app = create_app()
     app.dependency_overrides[get_settings] = _get_test_settings

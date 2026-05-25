@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from app.storage.local import LocalFileStorage
+from app.infrastructure.storage.local import LocalFileStorage
 
 
 @pytest.fixture

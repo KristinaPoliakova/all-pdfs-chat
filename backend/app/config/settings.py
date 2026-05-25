@@ -7,7 +7,7 @@ from typing import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.db.sqlite_paths import resolve_sqlite_database_url
+from app.infrastructure.persistence.sql.sqlite_paths import resolve_sqlite_database_url
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ENV_FILE = _BACKEND_ROOT / ".env"
