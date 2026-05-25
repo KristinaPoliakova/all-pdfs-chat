@@ -7,11 +7,15 @@ from tests.pdf_fixtures import make_text_pdf_bytes
 
 
 @pytest.mark.asyncio
-async def test_upload_response_omits_null_fields_and_uses_utc_z(api_client: AsyncClient) -> None:
+async def test_upload_response_omits_null_fields_and_uses_utc_z(
+    api_client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
     pdf_bytes = make_text_pdf_bytes()
     response = await api_client.post(
         "/api/v1/pdfs",
         files={"file": ("report.pdf", pdf_bytes, "application/pdf")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 201
