@@ -108,7 +108,7 @@ class PdfUploadService:
         self._settings = settings
         self._job_queue = job_queue
 
-    async def upload(self, file: UploadFile) -> PdfUploadResult:
+    async def upload(self, file: UploadFile, *, user_id: str) -> PdfUploadResult:
         filename, data = await read_pdf_upload(
             file,
             max_size_bytes=self._settings.max_upload_size_bytes,
@@ -117,6 +117,7 @@ class PdfUploadService:
         await asyncio.to_thread(self._storage.upload, storage_key, data)
         try:
             record = await self._pdf_repository.create(
+                user_id=user_id,
                 filename=filename,
                 storage_key=storage_key,
                 size_bytes=len(data),
