@@ -21,12 +21,14 @@ class SqlPdfRepository:
     async def create(
         self,
         *,
+        user_id: str,
         filename: str,
         storage_key: str,
         size_bytes: int,
         processing_status: PdfProcessingStatus = PdfProcessingStatus.UPLOADED,
     ) -> PdfRecord:
         document = PdfDocument(
+            user_id=user_id,
             filename=filename,
             storage_key=storage_key,
             size_bytes=size_bytes,
@@ -100,6 +102,13 @@ class SqlPdfRepository:
                 raise LookupError(f"PDF document not found: {pdf_id}")
         return _to_record(document)
 
+    async def get_for_user(self, pdf_id: str, user_id: str) -> PdfRecord:
+        async with self._session_factory() as session:
+            document = await session.get(PdfDocument, pdf_id)
+            if document is None or document.user_id != user_id:
+                raise LookupError(f"PDF document not found: {pdf_id}")
+        return _to_record(document)
+
     async def get_pages(self, pdf_id: str) -> list[PageClassificationResult]:
         async with self._session_factory() as session:
             result = await session.execute(
@@ -151,6 +160,7 @@ class SqlPdfRepository:
 def _to_record(document: PdfDocument) -> PdfRecord:
     return PdfRecord(
         id=document.id,
+        user_id=document.user_id,
         filename=document.filename,
         storage_key=document.storage_key,
         size_bytes=document.size_bytes,

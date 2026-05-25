@@ -18,6 +18,7 @@ class InMemoryPdfRepository:
     async def create(
         self,
         *,
+        user_id: str,
         filename: str,
         storage_key: str,
         size_bytes: int,
@@ -25,6 +26,7 @@ class InMemoryPdfRepository:
     ) -> PdfRecord:
         record = PdfRecord(
             id=str(uuid.uuid4()),
+            user_id=user_id,
             filename=filename,
             storage_key=storage_key,
             size_bytes=size_bytes,
@@ -72,6 +74,12 @@ class InMemoryPdfRepository:
     async def get(self, pdf_id: str) -> PdfRecord:
         record = self._records.get(pdf_id)
         if record is None:
+            raise LookupError(f"PDF document not found: {pdf_id}")
+        return record
+
+    async def get_for_user(self, pdf_id: str, user_id: str) -> PdfRecord:
+        record = await self.get(pdf_id)
+        if record.user_id != user_id:
             raise LookupError(f"PDF document not found: {pdf_id}")
         return record
 
