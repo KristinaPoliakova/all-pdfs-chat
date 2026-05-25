@@ -28,6 +28,7 @@ async def test_pipeline_classifies_pdf_and_sets_classified() -> None:
     storage_key = "pdfs/test.pdf"
     file_storage.upload(storage_key, data)
     record = await pdf_repository.create(
+        user_id="user-1",
         filename="t.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
@@ -57,6 +58,7 @@ async def test_pipeline_extracts_simple_pages_locally() -> None:
     storage_key = "pdfs/simple.pdf"
     file_storage.upload(storage_key, data)
     record = await pdf_repository.create(
+        user_id="user-1",
         filename="simple.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
@@ -99,6 +101,7 @@ async def test_pipeline_classification_failure_leaves_no_pages() -> None:
     storage_key = "pdfs/fail.pdf"
     file_storage.upload(storage_key, data)
     record = await pdf_repository.create(
+        user_id="user-1",
         filename="fail.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
@@ -144,6 +147,7 @@ async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
     storage_key = "pdfs/complex.pdf"
     file_storage.upload(storage_key, data)
     record = await pdf_repository.create(
+        user_id="user-1",
         filename="complex.pdf",
         storage_key=storage_key,
         size_bytes=len(data),

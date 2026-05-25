@@ -174,6 +174,7 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
     storage_key = "pdfs/timeout.pdf"
     file_storage.upload(storage_key, data)
     record = await pdf_repository.create(
+        user_id="user-1",
         filename="timeout.pdf",
         storage_key=storage_key,
         size_bytes=len(data),
