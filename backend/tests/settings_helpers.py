@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from app.config.settings import Settings
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+TEST_DATABASE_URL = (
+    "postgresql+asyncpg://all_pdfs_chat:devpassword@127.0.0.1:5432/all_pdfs_chat_test"
+)
 
 
 def make_test_settings(**overrides: object) -> Settings:

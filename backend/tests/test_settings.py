@@ -2,13 +2,13 @@ from pathlib import Path
 
 import pytest
 from app.config.settings import (
+    DEFAULT_DEV_DATABASE_URL,
     DEFAULT_LOCAL_STORAGE_PATH,
     LOCAL_STORAGE_PATH,
     Settings,
     get_settings,
 )
 
-_AZURE_SQL_CONN = "Server=tcp:host,1433;Initial Catalog=db;User ID=u;Password=p;"
 _POSTGRES_URL = "postgresql+asyncpg://app:secret@127.0.0.1:5432/all_pdfs_chat"
 
 
@@ -59,14 +59,16 @@ def test_resolved_local_storage_path_honors_override(tmp_path: Path) -> None:
     assert settings.resolved_local_storage_path == (tmp_path / "uploads").resolve()
 
 
-def test_defaults_to_dev(tmp_path: Path) -> None:
+def test_defaults_to_dev(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     empty_env = tmp_path / ".env"
     empty_env.write_text("", encoding="utf-8")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     settings = Settings(_env_file=empty_env)
 
     assert settings.is_dev is True
     assert settings.is_prod is False
     assert settings.storage_backend == "local"
+    assert settings.database_url == DEFAULT_DEV_DATABASE_URL
     assert settings.azure_storage_container_name == "pdfs"
     assert settings.classification_max_pages == 10
 
@@ -112,12 +114,13 @@ def test_prod_accepts_local_storage_with_database_url() -> None:
     assert settings.uses_azure_storage is False
 
 
-def test_prod_requires_database_configuration() -> None:
-    with pytest.raises(
-        ValueError,
-        match="DATABASE_URL \\(non-SQLite\\) or AZURE_SQL_CONNECTIONSTRING",
-    ):
-        Settings(app_env="prod", storage_backend="local", _env_file=None)
+def test_rejects_non_postgresql_database_url() -> None:
+    with pytest.raises(ValueError, match="PostgreSQL async driver"):
+        Settings(
+            app_env="dev",
+            database_url="sqlite+aiosqlite:///./data/app.db",
+            _env_file=None,
+        )
 
 
 def test_prod_azure_storage_requires_connection_string() -> None:
@@ -128,17 +131,6 @@ def test_prod_azure_storage_requires_connection_string() -> None:
             storage_backend="azure",
             _env_file=None,
         )
-
-
-def test_prod_azure_sql_fallback_without_database_url() -> None:
-    settings = Settings(
-        app_env="prod",
-        storage_backend="local",
-        azure_sql_connectionstring=_AZURE_SQL_CONN,
-        _env_file=None,
-    )
-
-    assert settings.azure_sql_connectionstring.startswith("Server=tcp:host")
 
 
 def test_prod_parsing_enabled_requires_di_endpoint() -> None:

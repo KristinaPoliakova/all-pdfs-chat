@@ -44,6 +44,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     create_user_repository()
     create_session_repository()
 
+    fastapi_app.state.db_initialized = True
     fastapi_app.state.ready = True
     yield
     fastapi_app.state.ready = False

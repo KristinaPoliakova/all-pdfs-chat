@@ -55,7 +55,8 @@ class SqlJobQueue:
                     .where(PdfJob.status == JobStatus.PENDING.value)
                     .where(PdfJob.run_after <= now)
                     .order_by(PdfJob.created_at)
-                    .limit(1),
+                    .limit(1)
+                    .with_for_update(skip_locked=True),
                 )
                 job = result.scalar_one_or_none()
                 if job is None:

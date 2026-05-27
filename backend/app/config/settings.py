@@ -7,17 +7,14 @@ from typing import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.infrastructure.persistence.sql.sqlite_paths import (
-    is_sqlite_database_url,
-    resolve_sqlite_database_url,
-)
-
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ENV_FILE = _BACKEND_ROOT / ".env"
 DEFAULT_LOCAL_STORAGE_PATH = (_BACKEND_ROOT / "data" / "uploads").resolve()
 # Backwards-compatible alias used by tests and existing imports.
 LOCAL_STORAGE_PATH = DEFAULT_LOCAL_STORAGE_PATH
-_DEFAULT_SQLITE_DATABASE_URL = "sqlite+aiosqlite:///./data/app.db"
+DEFAULT_DEV_DATABASE_URL = (
+    "postgresql+asyncpg://all_pdfs_chat:devpassword@127.0.0.1:5432/all_pdfs_chat"
+)
 _MIN_UPLOAD_SIZE_BYTES = 1
 _MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024
 MAX_FILENAME_LENGTH = 255
@@ -32,8 +29,7 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "dev"
-    database_url: str = _DEFAULT_SQLITE_DATABASE_URL
-    azure_sql_connectionstring: str = ""
+    database_url: str = DEFAULT_DEV_DATABASE_URL
     storage_backend: str = "local"
     local_storage_path: str = ""
     max_upload_size_bytes: int = 10 * 1024 * 1024
@@ -76,6 +72,18 @@ class Settings(BaseSettings):
     def uses_azure_storage(self) -> bool:
         return self.is_prod and self.storage_backend == "azure"
 
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        url = value.strip()
+        if not url:
+            raise ValueError("DATABASE_URL must not be empty")
+        if not url.lower().startswith("postgresql+"):
+            raise ValueError(
+                "DATABASE_URL must use a PostgreSQL async driver (postgresql+asyncpg://...)",
+            )
+        return url
+
     @field_validator("max_upload_size_bytes")
     @classmethod
     def validate_max_upload_size(cls, value: int) -> int:
@@ -109,20 +117,8 @@ class Settings(BaseSettings):
         if not self.is_dev and not self.is_prod:
             raise ValueError(f"Unknown APP_ENV: {self.app_env!r}. Expected dev or prod.")
 
-        if self.is_dev:
-            self.database_url = resolve_sqlite_database_url(
-                self.database_url,
-                base_dir=_BACKEND_ROOT,
-            )
-
         if self.is_prod:
             missing: list[str] = []
-            has_prod_database = bool(self.database_url.strip()) and not is_sqlite_database_url(
-                self.database_url,
-            )
-            has_azure_sql = bool(self.azure_sql_connectionstring.strip())
-            if not has_prod_database and not has_azure_sql:
-                missing.append("DATABASE_URL (non-SQLite) or AZURE_SQL_CONNECTIONSTRING")
             if self.uses_azure_storage and not self.azure_storage_connection_string.strip():
                 missing.append("AZURE_STORAGE_CONNECTION_STRING")
             if self.parsing_enabled and not self.azure_document_intelligence_endpoint.strip():

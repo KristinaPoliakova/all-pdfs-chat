@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start local dev: FastAPI API + background worker + Next.js UI in one terminal.
+# Start local dev: PostgreSQL + FastAPI API + background worker + Next.js UI.
 # Usage: ./scripts/dev.sh [--setup-only | --stop]
 
 set -euo pipefail
@@ -24,15 +24,15 @@ for arg in "$@"; do
       cat <<'EOF'
 Usage: ./scripts/dev.sh [options]
 
-  Starts the backend API, background worker, and Next.js dev server together.
-  Press Ctrl+C to stop all processes.
+  Starts PostgreSQL (Docker Compose), backend API, background worker, and Next.js.
+  Press Ctrl+C to stop app processes (PostgreSQL keeps running).
 
 Options:
-  --setup-only   Copy env files and install dependencies; do not start servers
+  --setup-only   Copy env files, start Postgres, install dependencies; do not start app servers
   --stop         Stop orphaned dev servers on ports 8000 and 3000
   -h, --help     Show this help
 
-Prerequisites: uv (https://docs.astral.sh/uv/), Node.js 20+, npm
+Prerequisites: PostgreSQL (Docker Compose or local install), uv, Node.js 20+, npm
 EOF
       exit 0
       ;;
@@ -116,6 +116,97 @@ ensure_frontend_env() {
   fi
 }
 
+PG_HOST="${POSTGRES_HOST:-127.0.0.1}"
+PG_PORT="${POSTGRES_PORT:-5432}"
+PG_USER="${POSTGRES_USER:-all_pdfs_chat}"
+PG_DB="${POSTGRES_DB:-all_pdfs_chat}"
+PG_TEST_DB="${POSTGRES_TEST_DB:-all_pdfs_chat_test}"
+
+postgres_is_reachable() {
+  if command -v pg_isready >/dev/null 2>&1; then
+    pg_isready -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" >/dev/null 2>&1
+    return $?
+  fi
+  if command -v nc >/dev/null 2>&1; then
+    nc -z "$PG_HOST" "$PG_PORT" >/dev/null 2>&1
+    return $?
+  fi
+  return 1
+}
+
+die_postgres_not_available() {
+  die "PostgreSQL is not available.
+
+Docker was not found, and nothing is listening for user '${PG_USER}' at ${PG_HOST}:${PG_PORT}.
+
+Recommended — Docker (matches docker-compose.yml and backend/.env.example):
+  1. Install Docker Desktop: https://docs.docker.com/desktop/install/mac-install/
+     (or OrbStack: https://orbstack.dev — lighter on Mac)
+  2. Open the app once so the docker CLI works in Terminal
+  3. Run: ./scripts/dev.sh
+
+Alternative — Homebrew PostgreSQL (you must create the user/DB yourself):
+  brew install postgresql@16
+  brew services start postgresql@16
+  See scripts/README.md section \"PostgreSQL without Docker\"
+
+After Postgres is up, run: ./scripts/dev.sh"
+}
+
+ensure_postgres() {
+  if command -v docker >/dev/null 2>&1; then
+    ensure_postgres_docker
+    return 0
+  fi
+
+  if postgres_is_reachable; then
+    log "PostgreSQL already reachable at ${PG_HOST}:${PG_PORT} (skipping Docker)."
+    ensure_test_database_native
+    return 0
+  fi
+
+  die_postgres_not_available
+}
+
+ensure_postgres_docker() {
+  log "Starting PostgreSQL (docker compose)…"
+  (cd "$ROOT" && docker compose up -d postgres)
+  wait_for_postgres_docker
+  ensure_test_database_docker
+}
+
+wait_for_postgres_docker() {
+  log "Waiting for PostgreSQL to accept connections…"
+  local attempt
+  for attempt in $(seq 1 30); do
+    if (cd "$ROOT" && docker compose exec -T postgres pg_isready -U "$PG_USER" -d "$PG_DB") >/dev/null 2>&1; then
+      log "PostgreSQL is ready."
+      return 0
+    fi
+    sleep 1
+  done
+  die "PostgreSQL did not become ready in time. Check: docker compose logs postgres"
+}
+
+ensure_test_database_docker() {
+  (cd "$ROOT" && docker compose exec -T postgres psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 <<SQL
+SELECT 'CREATE DATABASE ${PG_TEST_DB}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${PG_TEST_DB}')\gexec
+SQL
+  ) >/dev/null
+}
+
+ensure_test_database_native() {
+  if ! command -v psql >/dev/null 2>&1; then
+    warn "psql not found — skipping ${PG_TEST_DB} creation (pytest SQL tests may fail)."
+    return 0
+  fi
+  PGPASSWORD="${POSTGRES_PASSWORD:-devpassword}" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 <<SQL >/dev/null 2>&1 || true
+SELECT 'CREATE DATABASE ${PG_TEST_DB}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${PG_TEST_DB}')\gexec
+SQL
+}
+
 ensure_backend_deps() {
   log "Syncing backend dependencies (uv sync)…"
   (cd "$BACKEND" && uv sync)
@@ -136,6 +227,7 @@ run_setup() {
   require_cmd npm
   ensure_backend_env
   ensure_frontend_env
+  ensure_postgres
   ensure_backend_deps
   ensure_frontend_deps
   log "Setup complete."

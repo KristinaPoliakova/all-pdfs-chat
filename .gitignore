@@ -148,7 +148,7 @@ activemq-data/
 # SageMath parsed files
 *.sage.py
 
-# Local uploaded files and SQLite DB (dev)
+# Local uploaded files and legacy SQLite paths
 backend/data/
 data/uploads/
 data/app.db

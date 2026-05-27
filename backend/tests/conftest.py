@@ -1,3 +1,17 @@
+from __future__ import annotations
+
+import os
+
+# app.main creates the FastAPI app at import time; override developer .env before importing app.
+os.environ["APP_ENV"] = "dev"
+os.environ["DATABASE_URL"] = (
+    "postgresql+asyncpg://all_pdfs_chat:devpassword@127.0.0.1:5432/all_pdfs_chat_test"
+)
+os.environ["AZURE_STORAGE_CONNECTION_STRING"] = ""
+os.environ["AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"] = ""
+os.environ["AZURE_DOCUMENT_INTELLIGENCE_API_KEY"] = ""
+os.environ["PARSING_ENABLED"] = "false"
+
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 import pytest
@@ -37,7 +51,6 @@ def _isolate_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep pytest off developer .env / shell prod credentials."""
     monkeypatch.setenv("APP_ENV", "dev")
     monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
-    monkeypatch.setenv("AZURE_SQL_CONNECTIONSTRING", "")
     monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", "")
     monkeypatch.setenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "")
     monkeypatch.setenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY", "")
@@ -104,9 +117,13 @@ async def api_client(
 ) -> AsyncIterator[AsyncClient]:
     get_settings.cache_clear()
 
+    async def _skip_init_database(settings: Settings | None = None) -> None:
+        return None
+
     def _get_test_settings() -> Settings:
         return make_test_settings()
 
+    monkeypatch.setattr("app.main.init_database", _skip_init_database)
     monkeypatch.setattr("app.main.get_settings", _get_test_settings)
     monkeypatch.setattr("app.config.settings.get_settings", _get_test_settings)
     monkeypatch.setattr(

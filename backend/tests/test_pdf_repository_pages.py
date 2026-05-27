@@ -11,7 +11,7 @@ from app.classification.types import (
 )
 from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
 
-from tests.db_helpers import make_sql_pdf_repository, open_test_database
+from tests.db_helpers import make_sql_pdf_repository, open_test_database, seed_sql_user_and_pdf
 
 
 def _page_result(
@@ -184,13 +184,12 @@ async def test_get_pages_returns_empty_for_document_without_pages() -> None:
 async def test_sql_store_persists_pages_and_status() -> None:
     runtime = await open_test_database()
     store = make_sql_pdf_repository(runtime)
-
-    record = await store.create(
-        user_id="user-1",
-        filename="doc.pdf",
-        storage_key="pdfs/uuid-doc.pdf",
-        size_bytes=100,
+    _user_id, pdf_id = await seed_sql_user_and_pdf(
+        runtime,
+        email="pages@example.com",
+        storage_key="pdfs/pages-doc.pdf",
     )
+    record = await store.get_for_user(pdf_id, _user_id)
     await store.save_page_classifications(
         record.id,
         [_page_result(1)],

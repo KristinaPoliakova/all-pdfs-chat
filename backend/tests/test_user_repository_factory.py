@@ -1,11 +1,12 @@
 from unittest.mock import patch
 
 import pytest
-from app.config.settings import _BACKEND_ROOT, Settings
+from app.config.settings import Settings
 from app.infrastructure.factories.users import create_user_repository, reset_user_repository_state
 from app.infrastructure.persistence.sql.lifecycle import get_database
 from app.infrastructure.persistence.sql.repositories.users import SqlUserRepository
-from app.infrastructure.persistence.sql.sqlite_paths import sqlite_file_path
+
+_POSTGRES_URL = "postgresql+asyncpg://app:secret@127.0.0.1:5432/all_pdfs_chat"
 
 
 @pytest.fixture(autouse=True)
@@ -16,20 +17,17 @@ async def _reset_factory() -> None:
 
 
 @pytest.mark.asyncio
-async def test_factory_uses_sqlite_url_for_dev() -> None:
+async def test_factory_uses_postgres_url_for_dev() -> None:
     settings = Settings(
         app_env="dev",
-        database_url="sqlite+aiosqlite:///./test-dev-users.db",
+        database_url=_POSTGRES_URL,
         _env_file=None,
     )
 
     repo = create_user_repository(settings)
 
     assert isinstance(repo, SqlUserRepository)
-    assert (
-        sqlite_file_path(get_database(settings).database_url)
-        == (_BACKEND_ROOT / "test-dev-users.db").resolve()
-    )
+    assert get_database(settings).database_url == _POSTGRES_URL
 
 
 @pytest.mark.asyncio

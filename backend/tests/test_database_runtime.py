@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import patch
 
 import app.infrastructure.persistence.sql.models as _db_models  # noqa: F401
@@ -12,6 +11,10 @@ from app.infrastructure.persistence.sql.lifecycle import (
 )
 from app.infrastructure.persistence.sql.models.user import User
 from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
+from sqlalchemy.exc import OperationalError
+
+from tests.db_helpers import open_test_database
+from tests.settings_helpers import TEST_DATABASE_URL
 
 
 @pytest.fixture(autouse=True)
@@ -22,20 +25,8 @@ async def _reset_database() -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_schema_creates_sqlite_file(tmp_path: Path) -> None:
-    db_file = tmp_path / "nested" / "app.db"
-    runtime = DatabaseRuntime(f"sqlite+aiosqlite:///{db_file}")
-
-    await runtime.init_schema()
-
-    assert db_file.is_file()
-    await runtime.close()
-
-
-@pytest.mark.asyncio
 async def test_init_schema_registers_all_tables() -> None:
-    runtime = DatabaseRuntime("sqlite+aiosqlite:///:memory:")
-    await runtime.init_schema()
+    runtime = await open_test_database()
 
     async with runtime.session_factory() as session:
         session.add(User(email="alice@example.com", password_hash="hash"))
@@ -69,8 +60,15 @@ async def test_get_database_with_settings_returns_ephemeral_runtime() -> None:
 @pytest.mark.asyncio
 async def test_init_database_initializes_process_singleton() -> None:
     with patch("app.infrastructure.persistence.sql.lifecycle.get_settings") as get_settings:
-        get_settings.return_value = Settings(app_env="dev", _env_file=None)
-        await init_database()
+        get_settings.return_value = Settings(
+            app_env="dev",
+            database_url=TEST_DATABASE_URL,
+            _env_file=None,
+        )
+        try:
+            await init_database()
+        except (OperationalError, OSError, ConnectionRefusedError) as exc:
+            pytest.skip(f"PostgreSQL not available: {exc}")
 
         runtime = get_database()
         async with runtime.session_factory() as session:

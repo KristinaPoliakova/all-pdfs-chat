@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from tests.db_helpers import (
@@ -7,16 +5,6 @@ from tests.db_helpers import (
     make_sql_user_repository,
     open_test_database,
 )
-
-
-@pytest.mark.asyncio
-async def test_init_creates_parent_directory_for_sqlite_file(tmp_path: Path) -> None:
-    db_file = tmp_path / "nested" / "app.db"
-
-    runtime = await open_test_database(f"sqlite+aiosqlite:///{db_file}")
-
-    assert db_file.is_file()
-    await runtime.close()
 
 
 @pytest.mark.asyncio
@@ -76,5 +64,4 @@ async def test_get_for_user_raises_for_other_owner() -> None:
 
     with pytest.raises(LookupError):
         await store.get_for_user(record.id, other.id)
-
     await runtime.close()

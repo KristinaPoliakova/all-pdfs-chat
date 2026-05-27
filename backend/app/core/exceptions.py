@@ -19,8 +19,8 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.error("Database operational error: %s", message)
         if "readonly" in message.lower():
             detail = (
-                "Database is read-only. Ensure DATABASE_URL points to a writable SQLite file "
-                "under backend/data/ and that the API and worker use the same resolved path."
+                "Database is read-only. Check PostgreSQL permissions and that DATABASE_URL "
+                "points to a writable database."
             )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

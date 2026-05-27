@@ -33,10 +33,8 @@ app/
 │   ├── persistence/
 │   │   ├── sql/             # SQLAlchemy stack
 │   │   │   ├── base.py
-│   │   │   ├── azure_sql.py
-│   │   │   ├── sqlite_paths.py
 │   │   │   ├── runtime.py   # DatabaseRuntime — shared engine + session_factory
-│   │   │   ├── lifecycle.py # get_database(), init/close, dev/prod URL resolution
+│   │   │   ├── lifecycle.py # get_database(), init/close, URL from DATABASE_URL
 │   │   │   ├── startup_errors.py
 │   │   │   ├── models/      # ORM table definitions
 │   │   │   └── repositories/  # SqlPdfRepository, SqlJobQueue, …
@@ -85,9 +83,10 @@ From the repo root, start API + worker + frontend together:
 ./scripts/dev.sh
 ```
 
-Or run backend processes manually:
+Or run backend processes manually (PostgreSQL must be up — see repo-root `docker compose up -d postgres`):
 
 ```bash
+docker compose up -d postgres
 cd backend
 cp .env.example .env
 uv sync
@@ -96,7 +95,7 @@ uv run python -m app.worker             # terminal 2 — background processing
 ```
 
 - API docs: http://127.0.0.1:8000/docs
-- Health: `GET /health`, `GET /ready` (readiness for orchestrators)
+- Health: `GET /health` (liveness), `GET /ready` (readiness — app started and `SELECT 1` against PostgreSQL when the DB was initialized at startup)
 
 ### API endpoints
 
@@ -134,10 +133,11 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 | Variable | Notes |
 |----------|--------|
 | `APP_ENV` | `dev` or `prod` — picks storage + DB backends |
-| `DATABASE_URL` | Dev SQLite (default `sqlite+aiosqlite:///./data/app.db`) |
-| `AZURE_SQL_CONNECTIONSTRING` | Prod SQL database (required when `APP_ENV=prod`) |
+| `DATABASE_URL` | PostgreSQL async URL (`postgresql+asyncpg://…`); dev default matches `docker-compose.yml` |
+| `STORAGE_BACKEND` | `local` (default) or `azure` when `APP_ENV=prod` |
+| `LOCAL_STORAGE_PATH` | Override upload directory (default `backend/data/uploads`) |
 | `MAX_UPLOAD_SIZE_BYTES` | Default 10 MiB |
-| `AZURE_STORAGE_*` | Prod blob storage (required when `APP_ENV=prod`) |
+| `AZURE_STORAGE_*` | Required when `APP_ENV=prod` and `STORAGE_BACKEND=azure` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origins; empty disables CORS |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR` (default `INFO`) |
 
@@ -145,13 +145,14 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 
 | | `dev` | `prod` |
 |---|--------|--------|
-| PDF bytes (`FileStorage`) | Local disk | Azure Blob |
-| PDF rows + jobs + auth (`PdfRepository`, `JobQueue`, `UserRepository`, `SessionRepository`) | SQLite via shared `DatabaseRuntime` | Azure SQL |
+| PDF bytes (`FileStorage`) | Local disk | Local disk or Azure Blob (`STORAGE_BACKEND`) |
+| PDF rows + jobs + auth | PostgreSQL via shared `DatabaseRuntime` | PostgreSQL via shared `DatabaseRuntime` |
 
+- Local PostgreSQL: `docker compose up -d postgres` (started automatically by `./scripts/dev.sh`).
 - `create_file_storage()`, `create_pdf_repository()`, `create_job_queue()`, `create_user_repository()`, and `create_session_repository()` are **singletons** per process.
 - All SQL repositories share one **`DatabaseRuntime`** (one engine, one connection pool) via `get_database()`.
-- **Prod SQL driver:** `uv sync --group prod` installs `aioodbc` for `mssql+aioodbc://` URLs.
-- **Tests:** in-memory fakes via `dependency_overrides` in `tests/conftest.py` — never configured in `.env`.
+- **SQL driver:** `asyncpg` via `postgresql+asyncpg://` URLs (`uv sync` installs it).
+- **Tests:** most API tests use in-memory fakes via `dependency_overrides` in `tests/conftest.py`. SQL repository tests use PostgreSQL database `all_pdfs_chat_test` (see `tests/settings_helpers.py`); each test run truncates app tables via `open_test_database()` for isolation.
 
 ## Processing pipeline
 
@@ -210,7 +211,7 @@ Use `LOG_LEVEL=DEBUG` for more detail.
 - **Startup:** `init_database()` runs once (API and worker), then port factories wire SQL singletons.
 - **First upload:** creates `data/uploads/pdfs/...` on disk (no prep step for file storage).
 
-After local schema changes, delete `data/app.db` (and `-wal`/`-shm` if present) and restart **both** API and worker.
+After schema/model changes, restart **both** API and worker. Until Alembic lands, `init_database()` runs `create_all` on startup (reset dev data with `docker compose down -v` if needed).
 
 ## Pre-commit (Ruff on every commit)
 
@@ -233,6 +234,16 @@ Bypass in an emergency only: `git commit --no-verify`.
 
 ## Checks
 
+PostgreSQL must be running before SQL integration tests (including `test_*_sql.py` and SQL sections in other tests):
+
+```bash
+# from repo root
+./scripts/dev.sh --setup-only
+cd backend && uv run pytest -q
+```
+
+Or run the full suite:
+
 ```bash
 uv run pytest -q
 uv run ruff check app tests
@@ -240,8 +251,10 @@ uv run mypy app
 ```
 
 ```bash
-sqlite3 data/app.db "SELECT id, filename, processing_status FROM pdf_documents;"
-sqlite3 data/app.db "SELECT pdf_document_id, status FROM pdf_jobs;"
+docker compose exec postgres psql -U all_pdfs_chat -d all_pdfs_chat \
+  -c "SELECT id, filename, processing_status FROM pdf_documents;"
+docker compose exec postgres psql -U all_pdfs_chat -d all_pdfs_chat \
+  -c "SELECT pdf_document_id, status FROM pdf_jobs;"
 ls data/uploads/pdfs/
 ```
 

@@ -26,5 +26,4 @@ async def test_create_and_get_by_token_hash() -> None:
     found = await sessions.get_by_token_hash("abc123")
 
     assert found == created
-
     await runtime.close()

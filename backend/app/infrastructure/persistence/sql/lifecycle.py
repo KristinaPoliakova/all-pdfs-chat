@@ -1,22 +1,15 @@
 from __future__ import annotations
 
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.config.settings import Settings, get_settings
-from app.infrastructure.persistence.sql.azure_sql import resolve_prod_database_url
 from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
-from app.infrastructure.persistence.sql.sqlite_paths import is_sqlite_database_url
 
 _runtime: DatabaseRuntime | None = None
 
 
 def _database_url_for(*, cfg: Settings) -> str:
-    if cfg.is_prod:
-        db_url = cfg.database_url.strip()
-        if db_url and not is_sqlite_database_url(db_url):
-            return cfg.database_url
-        if cfg.azure_sql_connectionstring.strip():
-            return resolve_prod_database_url(
-                azure_sql_connectionstring=cfg.azure_sql_connectionstring,
-            )
     return cfg.database_url
 
 
@@ -48,3 +41,14 @@ async def close_database() -> None:
 
 async def reset_database_state() -> None:
     await close_database()
+
+
+async def ping_database() -> bool:
+    """Return True when the process database accepts a simple query."""
+    try:
+        runtime = get_database()
+        async with runtime.session_factory() as session:
+            await session.execute(text("SELECT 1"))
+    except (SQLAlchemyError, OSError):
+        return False
+    return True

@@ -7,7 +7,7 @@ from app.classification.types import PageClass, PageClassificationResult
 from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
 from app.parsing.types import PageExtract
 
-from tests.db_helpers import make_sql_pdf_repository, open_test_database
+from tests.db_helpers import make_sql_pdf_repository, open_test_database, seed_sql_user_and_pdf
 
 
 def _page_result(page_number: int, *, page_class: PageClass) -> PageClassificationResult:
@@ -93,12 +93,12 @@ async def test_save_page_extracts_replaces_existing_rows() -> None:
 async def test_sql_store_persists_page_extracts() -> None:
     runtime = await open_test_database()
     store = make_sql_pdf_repository(runtime)
-    record = await store.create(
-        user_id="user-1",
-        filename="doc.pdf",
-        storage_key="pdfs/uuid-doc.pdf",
-        size_bytes=100,
+    _user_id, pdf_id = await seed_sql_user_and_pdf(
+        runtime,
+        email="extracts@example.com",
+        storage_key="pdfs/extracts-doc.pdf",
     )
+    record = await store.get_for_user(pdf_id, _user_id)
     await store.save_page_classifications(
         record.id,
         [_page_result(1, page_class=PageClass.BORN_DIGITAL_SIMPLE)],
@@ -113,5 +113,4 @@ async def test_sql_store_persists_page_extracts() -> None:
     extracts = await store.get_page_extracts(record.id)
     assert len(extracts) == 1
     assert extracts[0].content_text == "sql text"
-
     await runtime.close()

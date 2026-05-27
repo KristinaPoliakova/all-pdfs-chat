@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.infrastructure.persistence.sql.base import Base
-from app.infrastructure.persistence.sql.sqlite_paths import ensure_sqlite_parent_dir
 
-# Azure SQL cold start (auto-pause resume) and slow networks can exceed ODBC's ~15s default.
-_AZURE_SQL_LOGIN_TIMEOUT_SECONDS = 60
+_POSTGRES_POOL_SIZE = 5
+_POSTGRES_MAX_OVERFLOW = 10
+_POSTGRES_POOL_RECYCLE_SECONDS = 1800
 
 
 def _create_app_async_engine(database_url: str) -> AsyncEngine:
@@ -21,8 +21,10 @@ def _create_app_async_engine(database_url: str) -> AsyncEngine:
         "echo": False,
         "pool_pre_ping": True,
     }
-    if database_url.startswith("mssql+"):
-        kwargs["connect_args"] = {"timeout": _AZURE_SQL_LOGIN_TIMEOUT_SECONDS}
+    if database_url.startswith("postgresql+"):
+        kwargs["pool_size"] = _POSTGRES_POOL_SIZE
+        kwargs["max_overflow"] = _POSTGRES_MAX_OVERFLOW
+        kwargs["pool_recycle"] = _POSTGRES_POOL_RECYCLE_SECONDS
     return create_async_engine(database_url, **kwargs)
 
 
@@ -44,7 +46,6 @@ class DatabaseRuntime:
         return self._session_factory
 
     async def init_schema(self) -> None:
-        ensure_sqlite_parent_dir(self.database_url)
         engine = self._get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

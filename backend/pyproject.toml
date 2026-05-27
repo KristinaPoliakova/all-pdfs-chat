@@ -6,7 +6,7 @@ readme = "../README.md"
 requires-python = ">=3.14"
 license = "Apache-2.0"
 dependencies = [
-    "aiosqlite>=0.21",
+    "asyncpg>=0.30",
     "azure-ai-documentintelligence>=1.0.2",
     "azure-identity>=1.25.3",
     "azure-storage-blob>=12.24",
@@ -22,10 +22,6 @@ dependencies = [
 ]
 
 [dependency-groups]
-prod = [
-    "aioodbc>=0.5",
-    "asyncpg>=0.30",
-]
 dev = [
     "httpx>=0.28",
     "mypy>=1.15",
@@ -73,4 +69,4 @@ mypy_path = "."
 source = ["app"]
 
 [tool.uv]
-default-groups = ["dev", "prod"]
+default-groups = ["dev"]
