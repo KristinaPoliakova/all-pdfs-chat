@@ -9,6 +9,8 @@ from app.infrastructure.persistence.sql.azure_sql import (
 )
 from app.infrastructure.persistence.sql.lifecycle import get_database
 
+_POSTGRES_URL = "postgresql+asyncpg://app:secret@127.0.0.1:5432/all_pdfs_chat"
+
 
 @pytest.fixture(autouse=True)
 def _clear_settings_cache() -> None:
@@ -96,19 +98,39 @@ def test_settings_reads_azure_sql_connectionstring_from_env(
 
 
 @pytest.mark.asyncio
-async def test_factory_uses_connectionstring_for_prod() -> None:
+async def test_factory_uses_connectionstring_for_prod_when_database_url_is_sqlite() -> None:
     settings = Settings(
         app_env="prod",
+        storage_backend="local",
         azure_sql_connectionstring=(
             "Server=tcp:prod.database.windows.net,1433;"
             "Initial Catalog=pdfs;"
             "User ID=app;"
             "Password=secret;"
         ),
-        azure_storage_connection_string="blob-conn",
         _env_file=None,
     )
 
     create_pdf_repository(settings)
 
     assert get_database(settings).database_url.startswith("mssql+aioodbc:///?odbc_connect=")
+
+
+@pytest.mark.asyncio
+async def test_factory_prefers_postgres_database_url_over_azure_sql() -> None:
+    settings = Settings(
+        app_env="prod",
+        database_url=_POSTGRES_URL,
+        storage_backend="local",
+        azure_sql_connectionstring=(
+            "Server=tcp:prod.database.windows.net,1433;"
+            "Initial Catalog=pdfs;"
+            "User ID=app;"
+            "Password=secret;"
+        ),
+        _env_file=None,
+    )
+
+    create_pdf_repository(settings)
+
+    assert get_database(settings).database_url == _POSTGRES_URL

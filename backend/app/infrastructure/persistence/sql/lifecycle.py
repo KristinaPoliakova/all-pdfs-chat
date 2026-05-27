@@ -3,15 +3,20 @@ from __future__ import annotations
 from app.config.settings import Settings, get_settings
 from app.infrastructure.persistence.sql.azure_sql import resolve_prod_database_url
 from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
+from app.infrastructure.persistence.sql.sqlite_paths import is_sqlite_database_url
 
 _runtime: DatabaseRuntime | None = None
 
 
 def _database_url_for(*, cfg: Settings) -> str:
     if cfg.is_prod:
-        return resolve_prod_database_url(
-            azure_sql_connectionstring=cfg.azure_sql_connectionstring,
-        )
+        db_url = cfg.database_url.strip()
+        if db_url and not is_sqlite_database_url(db_url):
+            return cfg.database_url
+        if cfg.azure_sql_connectionstring.strip():
+            return resolve_prod_database_url(
+                azure_sql_connectionstring=cfg.azure_sql_connectionstring,
+            )
     return cfg.database_url
 
 

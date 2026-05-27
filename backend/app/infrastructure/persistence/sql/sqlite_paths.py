@@ -4,6 +4,10 @@ from pathlib import Path
 from urllib.parse import unquote
 
 
+def is_sqlite_database_url(database_url: str) -> bool:
+    return database_url.strip().lower().startswith("sqlite")
+
+
 def resolve_sqlite_database_url(database_url: str, *, base_dir: Path) -> str:
     """Turn relative sqlite file URLs into absolute paths under base_dir."""
     if "sqlite" not in database_url or "///" not in database_url:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.application.ports.storage import FileStorage
-from app.config.settings import LOCAL_STORAGE_PATH, Settings, get_settings
+from app.config.settings import Settings, get_settings
 from app.infrastructure.storage.azure import AzureBlobStorage
 from app.infrastructure.storage.local import LocalFileStorage
 
@@ -24,10 +24,10 @@ def reset_file_storage_state() -> None:
 
 
 def _build_file_storage(cfg: Settings) -> FileStorage:
-    if cfg.is_prod:
-        return AzureBlobStorage(
-            connection_string=cfg.azure_storage_connection_string,
-            container_name=cfg.azure_storage_container_name,
-        )
+    if cfg.uses_local_storage:
+        return LocalFileStorage(cfg.resolved_local_storage_path)
 
-    return LocalFileStorage(LOCAL_STORAGE_PATH)
+    return AzureBlobStorage(
+        connection_string=cfg.azure_storage_connection_string,
+        container_name=cfg.azure_storage_container_name,
+    )

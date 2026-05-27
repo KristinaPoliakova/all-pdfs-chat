@@ -158,10 +158,11 @@ data/app.db
 # Sample / local PDFs (do not commit uploads or test files)
 backend/*.pdf
 
-# Secrets
+# Secrets — commit only *.example templates (placeholders, no real credentials)
 .env
 .env.*
 !**/.env.example
+!**/.env.*.example
 backend/.env
 .envrc
 .venv

@@ -1,5 +1,15 @@
 # Scripts
 
+## Environment files
+
+| File | Use when |
+|------|----------|
+| `backend/.env.example` | **Local development.** `./scripts/dev.sh` copies this to `backend/.env` if missing. SQLite + local disk uploads. |
+| `backend/.env.production.example` | **Production VM** (e.g. DigitalOcean droplet). Reference only — copy to `/etc/all-pdfs-chat/backend.env`, fill in secrets, and load from systemd. PostgreSQL + local storage. |
+| `frontend/.env.local.example` | **Local frontend.** Copied to `frontend/.env.local` by `dev.sh` if missing. |
+
+Do not commit `backend/.env`, `frontend/.env.local`, or server env files with real credentials. **Do** commit `*.example` templates — they contain placeholders only.
+
 ## Local development
 
 Run API, worker, and Next.js from a single terminal:

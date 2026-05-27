@@ -7,14 +7,21 @@ from typing import Self
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.infrastructure.persistence.sql.sqlite_paths import resolve_sqlite_database_url
+from app.infrastructure.persistence.sql.sqlite_paths import (
+    is_sqlite_database_url,
+    resolve_sqlite_database_url,
+)
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _ENV_FILE = _BACKEND_ROOT / ".env"
-LOCAL_STORAGE_PATH = (_BACKEND_ROOT / "data" / "uploads").resolve()
+DEFAULT_LOCAL_STORAGE_PATH = (_BACKEND_ROOT / "data" / "uploads").resolve()
+# Backwards-compatible alias used by tests and existing imports.
+LOCAL_STORAGE_PATH = DEFAULT_LOCAL_STORAGE_PATH
+_DEFAULT_SQLITE_DATABASE_URL = "sqlite+aiosqlite:///./data/app.db"
 _MIN_UPLOAD_SIZE_BYTES = 1
 _MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024
 MAX_FILENAME_LENGTH = 255
+_STORAGE_BACKENDS = frozenset({"local", "azure"})
 
 
 class Settings(BaseSettings):
@@ -25,8 +32,10 @@ class Settings(BaseSettings):
     )
 
     app_env: str = "dev"
-    database_url: str = "sqlite+aiosqlite:///./data/app.db"
+    database_url: str = _DEFAULT_SQLITE_DATABASE_URL
     azure_sql_connectionstring: str = ""
+    storage_backend: str = "local"
+    local_storage_path: str = ""
     max_upload_size_bytes: int = 10 * 1024 * 1024
     azure_storage_connection_string: str = ""
     azure_storage_container_name: str = "pdfs"
@@ -52,6 +61,21 @@ class Settings(BaseSettings):
     def is_dev(self) -> bool:
         return self.app_env.strip().lower() in {"dev", "development"}
 
+    @property
+    def resolved_local_storage_path(self) -> Path:
+        override = self.local_storage_path.strip()
+        if override:
+            return Path(override).expanduser().resolve()
+        return DEFAULT_LOCAL_STORAGE_PATH
+
+    @property
+    def uses_local_storage(self) -> bool:
+        return self.is_dev or self.storage_backend == "local"
+
+    @property
+    def uses_azure_storage(self) -> bool:
+        return self.is_prod and self.storage_backend == "azure"
+
     @field_validator("max_upload_size_bytes")
     @classmethod
     def validate_max_upload_size(cls, value: int) -> int:
@@ -71,6 +95,15 @@ class Settings(BaseSettings):
             raise ValueError("AZURE_STORAGE_CONTAINER_NAME must not be empty")
         return name
 
+    @field_validator("storage_backend")
+    @classmethod
+    def validate_storage_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in _STORAGE_BACKENDS:
+            msg = f"STORAGE_BACKEND must be one of: {', '.join(sorted(_STORAGE_BACKENDS))}"
+            raise ValueError(msg)
+        return normalized
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         if not self.is_dev and not self.is_prod:
@@ -84,10 +117,14 @@ class Settings(BaseSettings):
 
         if self.is_prod:
             missing: list[str] = []
-            if not self.azure_storage_connection_string.strip():
+            has_prod_database = bool(self.database_url.strip()) and not is_sqlite_database_url(
+                self.database_url,
+            )
+            has_azure_sql = bool(self.azure_sql_connectionstring.strip())
+            if not has_prod_database and not has_azure_sql:
+                missing.append("DATABASE_URL (non-SQLite) or AZURE_SQL_CONNECTIONSTRING")
+            if self.uses_azure_storage and not self.azure_storage_connection_string.strip():
                 missing.append("AZURE_STORAGE_CONNECTION_STRING")
-            if not self.azure_sql_connectionstring.strip():
-                missing.append("AZURE_SQL_CONNECTIONSTRING")
             if self.parsing_enabled and not self.azure_document_intelligence_endpoint.strip():
                 missing.append("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
             if missing:

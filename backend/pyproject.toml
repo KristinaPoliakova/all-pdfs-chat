@@ -24,6 +24,7 @@ dependencies = [
 [dependency-groups]
 prod = [
     "aioodbc>=0.5",
+    "asyncpg>=0.30",
 ]
 dev = [
     "httpx>=0.28",
