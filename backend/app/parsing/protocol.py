@@ -11,6 +11,8 @@ class DocumentParser(Protocol):
         self,
         pdf_bytes: bytes,
         pages: list[PageClassificationResult],
+        *,
+        page_text_by_number: dict[int, str] | None = None,
     ) -> list[PageExtract]: ...
 
 

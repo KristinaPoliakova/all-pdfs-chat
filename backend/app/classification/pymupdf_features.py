@@ -11,6 +11,7 @@ class PyMuPDFPageFeatures:
     text_quality_score: float
     image_area_ratio: float
     column_estimate: int
+    text: str
 
 
 def extract_pymupdf_page_features(data: bytes) -> dict[int, PyMuPDFPageFeatures]:
@@ -20,11 +21,13 @@ def extract_pymupdf_page_features(data: bytes) -> dict[int, PyMuPDFPageFeatures]
         for page_index in range(doc.page_count):
             page = doc.load_page(page_index)
             text = page.get_text()
+            stripped_text = text.strip()
             features[page_index + 1] = PyMuPDFPageFeatures(
-                native_text_char_count=len(text.strip()),
+                native_text_char_count=len(stripped_text),
                 text_quality_score=_text_quality_score(text),
                 image_area_ratio=_image_area_ratio(page),
                 column_estimate=_estimate_columns(page),
+                text=stripped_text,
             )
         return features
     finally:

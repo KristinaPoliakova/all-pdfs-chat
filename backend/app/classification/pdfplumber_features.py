@@ -12,11 +12,19 @@ class PdfPlumberPageFeatures:
     line_rect_density: float
 
 
-def extract_pdfplumber_page_features(data: bytes) -> dict[int, PdfPlumberPageFeatures]:
+def extract_pdfplumber_page_features(
+    data: bytes,
+    *,
+    page_numbers: list[int] | None = None,
+) -> dict[int, PdfPlumberPageFeatures]:
+    target_pages = set(page_numbers) if page_numbers is not None else None
     features: dict[int, PdfPlumberPageFeatures] = {}
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for page_index, page in enumerate(pdf.pages):
-            features[page_index + 1] = PdfPlumberPageFeatures(
+            page_number = page_index + 1
+            if target_pages is not None and page_number not in target_pages:
+                continue
+            features[page_number] = PdfPlumberPageFeatures(
                 table_score=_table_score(page),
                 line_rect_density=_line_rect_density(page),
             )

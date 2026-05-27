@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = ""
     log_level: str = "INFO"
     classification_enabled: bool = True
-    classification_max_pages: int = 500
+    classification_max_pages: int = 10
     worker_poll_interval_seconds: float = 1.0
     worker_lock_ttl_seconds: int = 300
     worker_max_attempts: int = 3

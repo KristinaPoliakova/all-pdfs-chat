@@ -7,7 +7,7 @@ import time
 from app.application.ports.pdf import PdfRecord, PdfRepository
 from app.application.ports.storage import FileStorage
 from app.classification.service import PdfClassificationService
-from app.classification.types import PageClassificationResult, PdfProcessingStatus
+from app.classification.types import PdfClassificationOutput, PdfProcessingStatus
 from app.config.settings import Settings
 from app.parsing.protocol import DocumentParser
 
@@ -37,19 +37,26 @@ class PdfProcessingPipeline:
         record = await self._pdf_repository.get(pdf_id)
         data = await asyncio.to_thread(self._storage.download, record.storage_key)
         extract_count = 0
+        page_text_by_number: dict[int, str] = {}
 
         if self._settings.classification_enabled:
-            await self._phase_classify(pdf_id, data)
+            classification_output = await self._phase_classify(pdf_id, data)
             record = await self._pdf_repository.get(pdf_id)
             if record.processing_status == PdfProcessingStatus.CLASSIFICATION_FAILED:
                 _log_processed(pdf_id, record.filename, record, extract_count, started)
                 return
+            if classification_output is not None:
+                page_text_by_number = classification_output.page_text_by_number
 
-        extract_count = await self._phase_parse(pdf_id, data)
+        extract_count = await self._phase_parse(pdf_id, data, page_text_by_number)
         record = await self._pdf_repository.get(pdf_id)
         _log_processed(pdf_id, record.filename, record, extract_count, started)
 
-    async def _phase_classify(self, pdf_id: str, data: bytes) -> list[PageClassificationResult]:
+    async def _phase_classify(
+        self,
+        pdf_id: str,
+        data: bytes,
+    ) -> PdfClassificationOutput | None:
         from datetime import UTC, datetime
 
         await self._pdf_repository.set_processing_status(
@@ -57,7 +64,7 @@ class PdfProcessingPipeline:
             PdfProcessingStatus.CLASSIFYING,
         )
         try:
-            pages = await asyncio.to_thread(self._classifier.classify_bytes, data)
+            output = await asyncio.to_thread(self._classifier.classify_bytes, data)
         except Exception as exc:
             error = str(exc)[:_MAX_ERROR_LENGTH]
             await self._pdf_repository.set_processing_status(
@@ -66,22 +73,27 @@ class PdfProcessingPipeline:
                 error=error,
             )
             logger.warning("PDF classify failed id=%s: %s", pdf_id, error)
-            return []
+            return None
 
         classified_at = datetime.now(UTC)
         await self._pdf_repository.save_page_classifications(
             pdf_id,
-            pages,
-            page_count=len(pages),
+            output.pages,
+            page_count=len(output.pages),
             classified_at=classified_at,
         )
         await self._pdf_repository.set_processing_status(
             pdf_id,
             PdfProcessingStatus.CLASSIFIED,
         )
-        return pages
+        return output
 
-    async def _phase_parse(self, pdf_id: str, data: bytes) -> int:
+    async def _phase_parse(
+        self,
+        pdf_id: str,
+        data: bytes,
+        page_text_by_number: dict[int, str],
+    ) -> int:
         pages = await self._pdf_repository.get_pages(pdf_id)
         if not pages:
             await self._pdf_repository.set_processing_status(pdf_id, PdfProcessingStatus.PARSED)
@@ -89,7 +101,11 @@ class PdfProcessingPipeline:
 
         await self._pdf_repository.set_processing_status(pdf_id, PdfProcessingStatus.PARSING)
         try:
-            extracts = await self._parser.parse_document(data, pages)
+            extracts = await self._parser.parse_document(
+                data,
+                pages,
+                page_text_by_number=page_text_by_number,
+            )
             if extracts:
                 await self._pdf_repository.save_page_extracts(pdf_id, extracts)
             await self._pdf_repository.set_processing_status(pdf_id, PdfProcessingStatus.PARSED)

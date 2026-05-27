@@ -46,6 +46,7 @@ def test_defaults_to_dev(tmp_path: Path) -> None:
     assert settings.is_dev is True
     assert settings.is_prod is False
     assert settings.azure_storage_container_name == "pdfs"
+    assert settings.classification_max_pages == 10
 
 
 def test_loads_from_dotenv_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

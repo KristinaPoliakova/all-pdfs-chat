@@ -206,7 +206,7 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
         parser=parser,
     )
 
-    extract_count = await pipeline._phase_parse(record.id, data)
+    extract_count = await pipeline._phase_parse(record.id, data, {})
 
     assert extract_count == 0
     updated = await pdf_repository.get(record.id)

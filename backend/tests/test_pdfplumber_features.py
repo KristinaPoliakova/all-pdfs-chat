@@ -13,3 +13,11 @@ def test_extract_pdfplumber_page_features_returns_one_based_page_numbers() -> No
     assert 1 in features
     assert features[1].table_score >= 0.0
     assert features[1].line_rect_density >= 0.0
+
+
+def test_extract_pdfplumber_page_features_can_limit_page_numbers() -> None:
+    data = make_text_pdf_bytes(pages=3)
+
+    features = extract_pdfplumber_page_features(data, page_numbers=[2])
+
+    assert sorted(features) == [2]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from app.classification.rules import classify_page
+from app.classification.rules import classify_page, is_definitely_complex_from_pymupdf
 from app.classification.thresholds import ClassifierThresholds
 from app.classification.types import PageClass, PageSignals
 
@@ -94,3 +94,21 @@ def test_moderate_text_with_low_image_can_be_simple() -> None:
     )
 
     assert page_class == PageClass.BORN_DIGITAL_SIMPLE
+
+
+def test_pymupdf_only_image_dominant_is_definitely_complex() -> None:
+    assert is_definitely_complex_from_pymupdf(
+        _signals(native_text_char_count=5, image_area_ratio=0.8, text_quality_score=0.1),
+        thresholds=_DEFAULT_THRESHOLDS,
+    )
+
+
+def test_pymupdf_only_multi_column_is_definitely_complex() -> None:
+    assert is_definitely_complex_from_pymupdf(
+        _signals(column_estimate=2),
+        thresholds=_DEFAULT_THRESHOLDS,
+    )
+
+
+def test_pymupdf_only_clean_page_needs_pdfplumber() -> None:
+    assert not is_definitely_complex_from_pymupdf(_signals(), thresholds=_DEFAULT_THRESHOLDS)

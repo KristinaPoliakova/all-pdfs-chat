@@ -38,3 +38,9 @@ class PageClassificationResult:
     page_class: PageClass
     confidence: float
     signals_json: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PdfClassificationOutput:
+    pages: list[PageClassificationResult]
+    page_text_by_number: dict[int, str]

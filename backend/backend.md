@@ -171,7 +171,7 @@ When `PARSING_ENABLED=false`, complex pages are skipped (simple pages still extr
 | Variable | Default | Notes |
 |----------|---------|--------|
 | `CLASSIFICATION_ENABLED` | `true` | Set `false` to skip enqueue/classification (stays `uploaded`) |
-| `CLASSIFICATION_MAX_PAGES` | `500` | Rejects larger PDFs with `classification_failed` |
+| `CLASSIFICATION_MAX_PAGES` | `10` | Rejects larger PDFs with `classification_failed` |
 | `WORKER_POLL_INTERVAL_SECONDS` | `1` | Worker idle poll interval |
 | `WORKER_LOCK_TTL_SECONDS` | `300` | Reclaim stale `running` jobs after this many seconds |
 | `WORKER_MAX_ATTEMPTS` | `3` | Max job retries before `failed` |

@@ -91,3 +91,16 @@ def _simple_confidence(signals: PageSignals, thresholds: ClassifierThresholds) -
 
 def _complex_confidence(signals: PageSignals, thresholds: ClassifierThresholds) -> float:
     return min(signals.text_quality_score, thresholds.simple_confidence_floor - 0.01)
+
+
+def is_definitely_complex_from_pymupdf(
+    signals: PageSignals,
+    *,
+    thresholds: ClassifierThresholds = DEFAULT_THRESHOLDS,
+) -> bool:
+    """True when pdfplumber layout signals cannot change the page class to simple."""
+    if _is_image_dominant_low_text(signals, thresholds):
+        return True
+    if _has_unreliable_text(signals, thresholds):
+        return True
+    return signals.column_estimate >= 2

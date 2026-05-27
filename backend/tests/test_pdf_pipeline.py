@@ -14,7 +14,7 @@ from tests.settings_helpers import make_test_settings
 
 
 class _FailingClassifier:
-    def classify_bytes(self, data: bytes) -> list[PageClassificationResult]:
+    def classify_bytes(self, data: bytes):
         msg = "broken pdf"
         raise ValueError(msg)
 
@@ -84,7 +84,7 @@ async def test_pipeline_extracts_simple_pages_locally() -> None:
         parser=CompositeDocumentParser(settings=settings),
     )
 
-    await pipeline._phase_parse(record.id, data)
+    await pipeline._phase_parse(record.id, data, {})
 
     extracts = await pdf_repository.get_page_extracts(record.id)
     assert len(extracts) == 1
@@ -179,7 +179,7 @@ async def test_pipeline_uses_azure_parser_for_complex_pages() -> None:
         parser=CompositeDocumentParser(settings=settings, azure_parser=_FakeAzure()),
     )
 
-    await pipeline._phase_parse(record.id, data)
+    await pipeline._phase_parse(record.id, data, {})
 
     extracts = await pdf_repository.get_page_extracts(record.id)
     assert len(extracts) == 2
