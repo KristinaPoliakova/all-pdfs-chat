@@ -27,3 +27,17 @@ def make_sql_user_repository(runtime: DatabaseRuntime) -> SqlUserRepository:
 
 def make_sql_session_repository(runtime: DatabaseRuntime) -> SqlSessionRepository:
     return SqlSessionRepository(runtime.session_factory)
+
+
+async def seed_sql_pdf_document(runtime: DatabaseRuntime) -> str:
+    """Create a user and PDF row so job-queue FK constraints are satisfied."""
+    users = make_sql_user_repository(runtime)
+    user = await users.create(email="jobs-test@example.com", password_hash="hash")
+    pdfs = make_sql_pdf_repository(runtime)
+    record = await pdfs.create(
+        user_id=user.id,
+        filename="fixture.pdf",
+        storage_key="fixtures/fixture.pdf",
+        size_bytes=1,
+    )
+    return record.id

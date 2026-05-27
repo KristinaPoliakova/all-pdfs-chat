@@ -71,15 +71,15 @@ async def run_worker() -> None:
                     pass
                 continue
             try:
-                await pipeline.run(job.pdf_id)
+                await pipeline.run(job.pdf_document_id)
                 await job_queue.complete(job.id)
             except Exception as exc:
                 next_attempt = job.attempts + 1
                 will_retry = next_attempt < job.max_attempts
                 logger.exception(
-                    "PDF job failed job_id=%s pdf_id=%s attempt=%d/%d will_retry=%s: %s",
+                    "PDF job failed job_id=%s pdf_document_id=%s attempt=%d/%d will_retry=%s: %s",
                     job.id,
-                    job.pdf_id,
+                    job.pdf_document_id,
                     next_attempt,
                     job.max_attempts,
                     will_retry,

@@ -241,7 +241,7 @@ uv run mypy app
 
 ```bash
 sqlite3 data/app.db "SELECT id, filename, processing_status FROM pdf_documents;"
-sqlite3 data/app.db "SELECT pdf_id, status FROM pdf_jobs;"
+sqlite3 data/app.db "SELECT pdf_document_id, status FROM pdf_jobs;"
 ls data/uploads/pdfs/
 ```
 

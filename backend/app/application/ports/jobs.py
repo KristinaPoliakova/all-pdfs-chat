@@ -16,7 +16,7 @@ class JobStatus(StrEnum):
 @dataclass(frozen=True, slots=True)
 class PdfJobRecord:
     id: str
-    pdf_id: str
+    pdf_document_id: str
     job_type: str
     status: JobStatus
     attempts: int
@@ -28,7 +28,7 @@ class PdfJobRecord:
 
 
 class JobQueue(Protocol):
-    async def enqueue(self, *, pdf_id: str, job_type: str) -> PdfJobRecord: ...
+    async def enqueue(self, *, pdf_document_id: str, job_type: str) -> PdfJobRecord: ...
 
     async def claim_next(self, *, worker_id: str) -> PdfJobRecord | None: ...
 
@@ -38,4 +38,4 @@ class JobQueue(Protocol):
 
     async def release_stale_locks(self, *, older_than: datetime) -> int: ...
 
-    async def get_by_pdf_id(self, pdf_id: str) -> PdfJobRecord: ...
+    async def get_by_pdf_document_id(self, pdf_document_id: str) -> PdfJobRecord: ...

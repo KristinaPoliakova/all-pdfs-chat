@@ -19,17 +19,17 @@ class SqlJobQueue:
         self._session_factory = session_factory
         self._max_attempts = max_attempts
 
-    async def enqueue(self, *, pdf_id: str, job_type: str) -> PdfJobRecord:
+    async def enqueue(self, *, pdf_document_id: str, job_type: str) -> PdfJobRecord:
         async with self._session_factory() as session:
             existing = await session.execute(
-                select(PdfJob).where(PdfJob.pdf_id == pdf_id),
+                select(PdfJob).where(PdfJob.pdf_document_id == pdf_document_id),
             )
             row = existing.scalar_one_or_none()
             if row is not None:
                 return _to_record(row)
             now = datetime.now(UTC)
             job = PdfJob(
-                pdf_id=pdf_id,
+                pdf_document_id=pdf_document_id,
                 job_type=job_type,
                 status=JobStatus.PENDING.value,
                 attempts=0,
@@ -135,12 +135,14 @@ class SqlJobQueue:
                     raise
         return released
 
-    async def get_by_pdf_id(self, pdf_id: str) -> PdfJobRecord:
+    async def get_by_pdf_document_id(self, pdf_document_id: str) -> PdfJobRecord:
         async with self._session_factory() as session:
-            result = await session.execute(select(PdfJob).where(PdfJob.pdf_id == pdf_id))
+            result = await session.execute(
+                select(PdfJob).where(PdfJob.pdf_document_id == pdf_document_id),
+            )
             job = result.scalar_one_or_none()
             if job is None:
-                raise LookupError(f"Job not found for pdf_id: {pdf_id}")
+                raise LookupError(f"Job not found for pdf_document_id: {pdf_document_id}")
         return _to_record(job)
 
 
@@ -155,7 +157,7 @@ def _as_utc(value: datetime | None) -> datetime | None:
 def _to_record(job: PdfJob) -> PdfJobRecord:
     return PdfJobRecord(
         id=job.id,
-        pdf_id=job.pdf_id,
+        pdf_document_id=job.pdf_document_id,
         job_type=job.job_type,
         status=JobStatus(job.status),
         attempts=job.attempts,

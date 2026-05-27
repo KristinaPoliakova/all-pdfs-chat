@@ -10,17 +10,17 @@ from app.application.ports.jobs import JobStatus, PdfJobRecord
 class InMemoryJobQueue:
     def __init__(self, *, max_attempts: int = 3) -> None:
         self._jobs: dict[str, PdfJobRecord] = {}
-        self._pdf_id_to_job_id: dict[str, str] = {}
+        self._pdf_document_id_to_job_id: dict[str, str] = {}
         self._max_attempts = max_attempts
 
-    async def enqueue(self, *, pdf_id: str, job_type: str) -> PdfJobRecord:
-        existing_id = self._pdf_id_to_job_id.get(pdf_id)
+    async def enqueue(self, *, pdf_document_id: str, job_type: str) -> PdfJobRecord:
+        existing_id = self._pdf_document_id_to_job_id.get(pdf_document_id)
         if existing_id is not None:
             return self._jobs[existing_id]
         now = datetime.now(UTC)
         job = PdfJobRecord(
             id=str(uuid.uuid4()),
-            pdf_id=pdf_id,
+            pdf_document_id=pdf_document_id,
             job_type=job_type,
             status=JobStatus.PENDING,
             attempts=0,
@@ -31,7 +31,7 @@ class InMemoryJobQueue:
             last_error=None,
         )
         self._jobs[job.id] = job
-        self._pdf_id_to_job_id[pdf_id] = job.id
+        self._pdf_document_id_to_job_id[pdf_document_id] = job.id
         return job
 
     async def claim_next(self, *, worker_id: str) -> PdfJobRecord | None:
@@ -104,10 +104,10 @@ class InMemoryJobQueue:
             released += 1
         return released
 
-    async def get_by_pdf_id(self, pdf_id: str) -> PdfJobRecord:
-        job_id = self._pdf_id_to_job_id.get(pdf_id)
+    async def get_by_pdf_document_id(self, pdf_document_id: str) -> PdfJobRecord:
+        job_id = self._pdf_document_id_to_job_id.get(pdf_document_id)
         if job_id is None:
-            raise LookupError(f"Job not found for pdf_id: {pdf_id}")
+            raise LookupError(f"Job not found for pdf_document_id: {pdf_document_id}")
         return self._jobs[job_id]
 
     def _require_job(self, job_id: str) -> PdfJobRecord:

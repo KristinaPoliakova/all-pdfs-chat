@@ -130,7 +130,10 @@ class PdfUploadService:
             raise
 
         if self._settings.classification_enabled:
-            await self._job_queue.enqueue(pdf_id=record.id, job_type="process_pdf")
+            await self._job_queue.enqueue(
+                pdf_document_id=record.id,
+                job_type="process_pdf",
+            )
 
         logger.info(
             "PDF uploaded id=%s filename=%s size_bytes=%d status=%s",

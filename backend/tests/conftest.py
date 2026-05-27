@@ -155,7 +155,7 @@ def run_pending_pdf_jobs(
             job = await job_queue.claim_next(worker_id="test-worker")
             if job is None:
                 break
-            await pipeline.run(job.pdf_id)
+            await pipeline.run(job.pdf_document_id)
             await job_queue.complete(job.id)
 
     return _run
