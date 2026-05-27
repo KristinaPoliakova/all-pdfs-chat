@@ -182,6 +182,19 @@ When `PARSING_ENABLED=false`, complex pages are skipped (simple pages still extr
 | `PARSING_MAX_WAIT_SECONDS` | `600` | Azure DI operation timeout |
 | `SESSION_TTL_SECONDS` | `604800` | Auth session lifetime (7 days) |
 
+### Worker concurrency
+
+**Decision:** one PDF per worker process, sequential pipeline steps, no in-job page parallelism. Scale throughput with **more worker replicas** (`python -m app.worker`), not `create_task` / multiple jobs in one process. Target **~1 active classify job per core** (reduce if memory-bound).
+
+| Approach | Optimizes | Status |
+|----------|-----------|--------|
+| Sequential worker (claim → full `pipeline.run` → complete) | Simplicity, predictable memory | **Current** |
+| Multiple worker processes/containers (same or extra VMs) | PDFs/hour (throughput) | **Preferred scale-up** |
+| In-job page batches (`ProcessPoolExecutor`) | One large PDF latency | **Deferred** (#9) |
+| Multiple `pipeline.run` tasks on one event loop | Throughput in one process | **Not planned** |
+
+Inside one job: `await` steps run in order (classify all pages, then parse). `asyncio.to_thread` offloads PyMuPDF/download from the event loop; it does not parallelize pages or jobs.
+
 ## Worker logging
 
 Minimal by design:
