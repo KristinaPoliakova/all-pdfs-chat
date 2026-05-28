@@ -23,6 +23,7 @@ from app.infrastructure.factories.sessions import (
 from app.infrastructure.factories.storage import reset_file_storage_state
 from app.infrastructure.factories.users import create_user_repository, reset_user_repository_state
 from app.infrastructure.persistence.sql.lifecycle import close_database, init_database
+from app.infrastructure.persistence.sql.migrations import SchemaRevisionError
 from app.infrastructure.persistence.sql.startup_errors import format_database_startup_error
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
         await init_database()
     except OperationalError as exc:
         logger.error(format_database_startup_error(exc))
+        raise
+    except SchemaRevisionError as exc:
+        logger.error("%s", exc)
         raise
 
     create_pdf_repository()

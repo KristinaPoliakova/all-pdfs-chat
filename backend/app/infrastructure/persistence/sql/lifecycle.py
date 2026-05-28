@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.config.settings import Settings, get_settings
+from app.infrastructure.persistence.sql.migrations import ensure_schema_current
 from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
 
 _runtime: DatabaseRuntime | None = None
@@ -29,7 +30,10 @@ def get_database(settings: Settings | None = None) -> DatabaseRuntime:
 
 
 async def init_database(settings: Settings | None = None) -> None:
-    await get_database(settings).init_schema()
+    cfg = settings if settings is not None else get_settings()
+    runtime = get_database(settings)
+    await runtime.verify_connection()
+    ensure_schema_current(database_url=runtime.database_url, strict=cfg.is_prod)
 
 
 async def close_database() -> None:

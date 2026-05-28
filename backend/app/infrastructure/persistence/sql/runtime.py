@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-
-from app.infrastructure.persistence.sql.base import Base
 
 _POSTGRES_POOL_SIZE = 5
 _POSTGRES_MAX_OVERFLOW = 10
@@ -45,10 +44,9 @@ class DatabaseRuntime:
             )
         return self._session_factory
 
-    async def init_schema(self) -> None:
-        engine = self._get_engine()
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+    async def verify_connection(self) -> None:
+        async with self.session_factory() as session:
+            await session.execute(text("SELECT 1"))
 
     async def close(self) -> None:
         if self._engine is not None:
