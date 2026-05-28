@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import importlib
+from datetime import UTC, datetime
 
 import pytest
+from app.classification.types import PageClass, PageClassificationResult
 from app.infrastructure.persistence.sql.base import Base
+from app.infrastructure.persistence.sql.migrations import ensure_migrated
 from app.infrastructure.persistence.sql.repositories.jobs import SqlJobQueue
 from app.infrastructure.persistence.sql.repositories.pdf import SqlPdfRepository
 from app.infrastructure.persistence.sql.repositories.sessions import SqlSessionRepository
 from app.infrastructure.persistence.sql.repositories.users import SqlUserRepository
 from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
+from app.parsing.types import PageExtract
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
@@ -33,7 +37,7 @@ async def truncate_sql_tables(runtime: DatabaseRuntime) -> None:
 async def open_test_database(url: str = TEST_DATABASE_URL) -> DatabaseRuntime:
     runtime = DatabaseRuntime(url)
     try:
-        await runtime.init_schema()
+        ensure_migrated(url)
         await truncate_sql_tables(runtime)
     except (OperationalError, OSError, ConnectionRefusedError) as exc:
         pytest.skip(f"PostgreSQL not available ({url}): {exc}")
@@ -92,3 +96,45 @@ async def seed_sql_user_and_pdf(
         size_bytes=100,
     )
     return user.id, record.id
+
+
+async def seed_sql_full_document_graph(
+    runtime: DatabaseRuntime,
+    *,
+    email: str = "migration-fk@example.com",
+    storage_key: str = "pdfs/migration-fk.pdf",
+) -> tuple[str, str]:
+    """Return (user_id, pdf_document_id) with pages, extracts, and a job row."""
+    user_id, pdf_id = await seed_sql_user_and_pdf(
+        runtime,
+        email=email,
+        storage_key=storage_key,
+    )
+    pdfs = make_sql_pdf_repository(runtime)
+    jobs = make_sql_job_queue(runtime)
+    classified_at = datetime.now(UTC)
+
+    await pdfs.save_page_classifications(
+        pdf_id,
+        [
+            PageClassificationResult(
+                page_number=1,
+                page_class=PageClass.BORN_DIGITAL_SIMPLE,
+                confidence=0.9,
+            ),
+        ],
+        page_count=1,
+        classified_at=classified_at,
+    )
+    await pdfs.save_page_extracts(
+        pdf_id,
+        [
+            PageExtract(
+                page_number=1,
+                content_text="migration test extract",
+                extractor="local_pymupdf",
+            ),
+        ],
+    )
+    await jobs.enqueue(pdf_document_id=pdf_id, job_type="process_pdf")
+    return user_id, pdf_id

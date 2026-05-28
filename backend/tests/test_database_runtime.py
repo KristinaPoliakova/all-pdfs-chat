@@ -9,6 +9,7 @@ from app.infrastructure.persistence.sql.lifecycle import (
     init_database,
     reset_database_state,
 )
+from app.infrastructure.persistence.sql.migrations import SchemaRevisionError, ensure_migrated
 from app.infrastructure.persistence.sql.models.user import User
 from app.infrastructure.persistence.sql.runtime import DatabaseRuntime
 from sqlalchemy.exc import OperationalError
@@ -25,7 +26,7 @@ async def _reset_database() -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_schema_registers_all_tables() -> None:
+async def test_migrated_schema_accepts_user_insert() -> None:
     runtime = await open_test_database()
 
     async with runtime.session_factory() as session:
@@ -58,17 +59,19 @@ async def test_get_database_with_settings_returns_ephemeral_runtime() -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_database_initializes_process_singleton() -> None:
+async def test_init_database_verifies_connection_when_schema_is_current() -> None:
+    try:
+        ensure_migrated(TEST_DATABASE_URL)
+    except (OperationalError, OSError, ConnectionRefusedError) as exc:
+        pytest.skip(f"PostgreSQL not available: {exc}")
+
     with patch("app.infrastructure.persistence.sql.lifecycle.get_settings") as get_settings:
         get_settings.return_value = Settings(
             app_env="dev",
             database_url=TEST_DATABASE_URL,
             _env_file=None,
         )
-        try:
-            await init_database()
-        except (OperationalError, OSError, ConnectionRefusedError) as exc:
-            pytest.skip(f"PostgreSQL not available: {exc}")
+        await init_database()
 
         runtime = get_database()
         async with runtime.session_factory() as session:
@@ -76,3 +79,19 @@ async def test_init_database_initializes_process_singleton() -> None:
             await session.commit()
 
     await close_database()
+
+
+@pytest.mark.asyncio
+async def test_init_database_raises_in_prod_when_schema_is_stale() -> None:
+    with patch("app.infrastructure.persistence.sql.lifecycle.get_settings") as get_settings:
+        get_settings.return_value = Settings(
+            app_env="prod",
+            database_url=TEST_DATABASE_URL,
+            _env_file=None,
+        )
+        with patch(
+            "app.infrastructure.persistence.sql.lifecycle.ensure_schema_current",
+            side_effect=SchemaRevisionError("stale"),
+        ):
+            with pytest.raises(SchemaRevisionError, match="stale"):
+                await init_database()
