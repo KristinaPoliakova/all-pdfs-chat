@@ -1,0 +1,45 @@
+# Database migrations
+
+Schema changes are managed with [Alembic](https://alembic.sqlalchemy.org/).
+
+## Commands
+
+Run from `backend/`:
+
+```bash
+# Apply all pending migrations
+uv run alembic upgrade head
+
+# Show current revision
+uv run alembic current
+
+# Autogenerate after model changes (review output before committing)
+uv run alembic revision --autogenerate -m "describe change"
+
+# Roll back one revision (staging only — test before prod)
+uv run alembic downgrade -1
+```
+
+## Environment
+
+- Uses `DATABASE_URL` from `.env` / environment (same as the app).
+- Override for CI or one-off runs: `ALEMBIC_DATABASE_URL=postgresql+asyncpg://…`
+- Migration commands use sync `psycopg`; the app runtime stays on `asyncpg`.
+
+## Bootstrap existing dev databases
+
+If tables were created with `create_all` and already match the initial migration:
+
+```bash
+uv run alembic stamp head
+```
+
+Fresh databases should use `upgrade head` instead.
+
+Tests and local bootstrap use `ensure_migrated()` in application code, which stamps legacy
+schemas automatically when app tables exist but `alembic_version` is missing.
+
+## Production rules
+
+See **Production migration rules** in `backend/backend.md`. Summary: never rewrite applied migrations,
+one change per revision, migrate before restart, backup before prod upgrade, review all autogen output.
