@@ -152,7 +152,39 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 - `create_file_storage()`, `create_pdf_repository()`, `create_job_queue()`, `create_user_repository()`, and `create_session_repository()` are **singletons** per process.
 - All SQL repositories share one **`DatabaseRuntime`** (one engine, one connection pool) via `get_database()`.
 - **SQL driver:** `asyncpg` via `postgresql+asyncpg://` URLs (`uv sync` installs it).
-- **Tests:** most API tests use in-memory fakes via `dependency_overrides` in `tests/conftest.py`. SQL repository tests use PostgreSQL database `all_pdfs_chat_test` (see `tests/settings_helpers.py`); each test run truncates app tables via `open_test_database()` for isolation.
+- **Tests:** most API tests use in-memory fakes via `dependency_overrides` in `tests/conftest.py`. SQL repository tests use PostgreSQL database `all_pdfs_chat_test` (see `tests/settings_helpers.py`); each test run applies Alembic migrations via `open_test_database()` then **truncates all app tables** for isolation.
+
+## Database migrations (Alembic)
+
+Schema changes are **version-controlled** and applied with [Alembic](https://alembic.sqlalchemy.org/) — not `create_all` at startup.
+
+| Command (from `backend/`) | Purpose |
+|---------------------------|---------|
+| `uv run alembic upgrade head` | Apply pending migrations |
+| `uv run alembic current` | Show applied revision |
+| `uv run alembic revision --autogenerate -m "…"` | Draft migration from model changes (**review before commit**) |
+| `uv run alembic downgrade -1` | Roll back one revision (staging drills) |
+| `uv run alembic stamp head` | Mark DB current without DDL (legacy `create_all` DBs only) |
+
+**Local workflow:** `./scripts/dev.sh` (or `--setup-only`) starts Postgres, runs `uv sync`, then migrates **both** `all_pdfs_chat` and `all_pdfs_chat_test`.
+
+**Startup:** `init_database()` verifies connectivity and checks the DB is at Alembic head. In **prod** a stale schema fails startup; in **dev** a warning is logged. Run migrations **before** restarting API and worker after model changes.
+
+**CI (when added):** `uv run alembic upgrade head && uv run pytest -q` against a test Postgres service.
+
+### Production migration rules
+
+| Rule | Why |
+|------|-----|
+| Never edit a migration already applied to prod | History is immutable — add a new revision |
+| One logical change per revision | Easier review and rollback |
+| Always ship a working `downgrade()` | Staging rollback drills |
+| Destructive changes = two phases | expand → deploy → contract (rename/drop columns) |
+| Run migrations before process restart | Avoid old code on new schema or vice versa |
+| `pg_dump -Fc` before prod upgrade | Mandatory once client-facing |
+| Review autogen output in PR | Autogen is a draft, not truth |
+
+More detail: `backend/alembic/README`.
 
 ## Processing pipeline
 
@@ -208,10 +240,10 @@ Use `LOG_LEVEL=DEBUG` for more detail.
 
 ## Startup vs upload
 
-- **Startup:** `init_database()` runs once (API and worker), then port factories wire SQL singletons.
+- **Startup:** `init_database()` verifies DB connectivity and Alembic head revision, then port factories wire SQL singletons.
 - **First upload:** creates `data/uploads/pdfs/...` on disk (no prep step for file storage).
 
-After schema/model changes, restart **both** API and worker. Until Alembic lands, `init_database()` runs `create_all` on startup (reset dev data with `docker compose down -v` if needed).
+After schema/model changes: `uv run alembic upgrade head`, then restart **both** API and worker. Reset dev data with `docker compose down -v` if needed.
 
 ## Pre-commit (Ruff on every commit)
 
@@ -237,7 +269,7 @@ Bypass in an emergency only: `git commit --no-verify`.
 PostgreSQL must be running before SQL integration tests (including `test_*_sql.py` and SQL sections in other tests):
 
 ```bash
-# from repo root
+# from repo root — starts Postgres, syncs deps, runs Alembic on dev + test DBs
 ./scripts/dev.sh --setup-only
 cd backend && uv run pytest -q
 ```

@@ -97,7 +97,7 @@ Keep `DATABASE_URL` in `backend/.env` aligned with your setup.
 
 Most API tests use in-memory fakes and do not require PostgreSQL. SQL integration tests (`test_*_sql.py` and SQL-backed cases in other modules) connect to **`all_pdfs_chat_test`**, created automatically by `dev.sh` or `deploy/postgres/init/01-create-test-db.sql` on first Docker Postgres start.
 
-Each SQL test opens the test database via `open_test_database()`, which runs `create_all` then **truncates all app tables** so tests do not leak state.
+Each SQL test opens the test database via `open_test_database()`, which runs **Alembic migrations** (`ensure_migrated`) then **truncates all app tables** so tests do not leak state.
 
 ```bash
 ./scripts/dev.sh --setup-only

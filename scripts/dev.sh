@@ -212,6 +212,24 @@ ensure_backend_deps() {
   (cd "$BACKEND" && uv sync)
 }
 
+database_url_for() {
+  local db_name="$1"
+  printf 'postgresql+asyncpg://%s:%s@%s:%s/%s' \
+    "$PG_USER" "${POSTGRES_PASSWORD:-devpassword}" "$PG_HOST" "$PG_PORT" "$db_name"
+}
+
+run_database_migrations() {
+  local dev_url test_url
+  dev_url="$(database_url_for "$PG_DB")"
+  test_url="$(database_url_for "$PG_TEST_DB")"
+  log "Applying Alembic migrations (dev + test databases)…"
+  (cd "$BACKEND" && uv run python -c "
+from app.infrastructure.persistence.sql.migrations import ensure_migrated
+ensure_migrated('${dev_url}')
+ensure_migrated('${test_url}')
+")
+}
+
 ensure_frontend_deps() {
   if [[ ! -d "$FRONTEND/node_modules" ]]; then
     log "Installing frontend dependencies (npm install)…"
@@ -229,6 +247,7 @@ run_setup() {
   ensure_frontend_env
   ensure_postgres
   ensure_backend_deps
+  run_database_migrations
   ensure_frontend_deps
   log "Setup complete."
 }
