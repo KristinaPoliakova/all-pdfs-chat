@@ -131,7 +131,7 @@ cd backend && uv sync
 cd .. && uv run --directory backend pre-commit install
 ```
 
-- **commit:** ruff (backend) + ESLint (frontend)
+- **commit:** ruff + ruff-format (backend) + ESLint (frontend)
 - **pre-push:** ruff, ruff-format, mypy, ESLint, `tsc --noEmit`, Vitest (fast checks; full SQL pytest runs in CI)
 
 Bypass in an emergency only: `git push --no-verify`.
