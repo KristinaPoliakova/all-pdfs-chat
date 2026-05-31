@@ -1,5 +1,10 @@
-# Install: cd backend && uv sync && uv run pre-commit install
-# Run manually: uv run pre-commit run --all-files  (from repo root)
+# Install: cd backend && uv sync && cd .. && uv run --directory backend pre-commit install
+#   (installs both pre-commit and pre-push hooks via default_install_hook_types)
+# Run all (commit stage):  uv run --directory backend pre-commit run --all-files
+# Run pre-push stage:      uv run --directory backend pre-commit run --hook-stage pre-push --all-files
+
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -13,3 +18,57 @@ repos:
         name: ruff format (backend)
         args: [--config, backend/pyproject.toml]
         files: ^backend/.*\.py$
+
+  - repo: local
+    hooks:
+      # ---------- commit stage ----------
+      - id: frontend-eslint
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|mjs)$
+        pass_filenames: false
+
+      # ---------- pre-push stage (fast safety net) ----------
+      - id: backend-ruff-push
+        name: ruff check (backend, pre-push)
+        entry: bash -c 'cd backend && uv run ruff check .'
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: backend-ruff-format-push
+        name: ruff format --check (backend, pre-push)
+        entry: bash -c 'cd backend && uv run ruff format --check .'
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: backend-mypy-push
+        name: mypy (backend, pre-push)
+        entry: bash -c 'cd backend && uv run mypy app'
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: frontend-lint-push
+        name: eslint (frontend, pre-push)
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: frontend-typecheck-push
+        name: tsc --noEmit (frontend, pre-push)
+        entry: bash -c 'cd frontend && npm run typecheck'
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+      - id: frontend-test-push
+        name: vitest (frontend, pre-push)
+        entry: bash -c 'cd frontend && npm run test'
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
