@@ -170,7 +170,7 @@ Schema changes are **version-controlled** and applied with [Alembic](https://ale
 
 **Startup:** `init_database()` verifies connectivity and checks the DB is at Alembic head. In **prod** a stale schema fails startup; in **dev** a warning is logged. Run migrations **before** restarting API and worker after model changes.
 
-**CI (when added):** `uv run alembic upgrade head && uv run pytest -q` against a test Postgres service.
+**CI:** `.github/workflows/ci.yml` runs `uv run alembic upgrade head` then `uv run pytest -q --cov=app` against a Postgres 16.6 service container (DB `all_pdfs_chat_test`, creds matching `tests/`).
 
 ### Production migration rules
 

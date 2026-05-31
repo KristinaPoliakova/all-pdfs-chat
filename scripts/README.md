@@ -111,3 +111,27 @@ Override the test URL if needed:
 export TEST_DATABASE_URL='postgresql+asyncpg://user:pass@127.0.0.1:5432/all_pdfs_chat_test'
 cd backend && uv run pytest -q tests/test_pdf_jobs_sql.py
 ```
+
+## Continuous Integration
+
+CI runs on **GitHub Actions** (`.github/workflows/ci.yml`) on every push and via manual dispatch:
+
+- **backend** — ruff lint + format check, mypy (strict), Alembic upgrade, and pytest (with coverage) against a Postgres 16.6 service container.
+- **frontend** — ESLint, `tsc --noEmit`, Vitest, and `next build`.
+- **docker-build** — builds the backend and frontend images to validate the Dockerfiles (no registry push).
+
+Path filtering skips jobs unrelated to the changed paths. There is no deployment step yet (CI only).
+
+### Local hooks
+
+Install pre-commit and pre-push hooks once:
+
+```bash
+cd backend && uv sync
+cd .. && uv run --directory backend pre-commit install
+```
+
+- **commit:** ruff (backend) + ESLint (frontend)
+- **pre-push:** ruff, ruff-format, mypy, ESLint, `tsc --noEmit`, Vitest (fast checks; full SQL pytest runs in CI)
+
+Bypass in an emergency only: `git push --no-verify`.
