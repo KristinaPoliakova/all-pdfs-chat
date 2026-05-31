@@ -192,11 +192,11 @@ Since there is no PR review, local hooks are the primary pre-`main` gate.
 - **Path filtering:** a docs-only commit triggers neither backend nor frontend jobs (only `changes`); a `backend/**` change runs backend (+docker) but not frontend.
 - **Local hooks:** `git push` with a lint error is blocked locally; a clean tree passes.
 
-## 10. Open options for the implementation plan
+## 10. Resolved options (decided during planning)
 
-1. **pre-push depth:** static-only (default) vs. also run `pytest` when a local Postgres is detected.
-2. **Coverage threshold:** report-only vs. enforce a `--cov-fail-under` minimum.
-3. **Doc updates scope:** how much of `backend.md` / `scripts/README.md` to touch.
+1. **pre-push depth:** **static + frontend unit tests only** — `ruff check`, `ruff format --check`, `mypy app`, `npm run lint`, `npm run typecheck`, `npm run test`. No `pytest` on pre-push (SQL suite needs Postgres and would slow every push; CI owns it).
+2. **Coverage:** **report-only** — `pytest --cov=app --cov-report=term-missing`, no `--cov-fail-under` yet. A threshold can be added later once a baseline exists.
+3. **Doc updates scope:** **minimal** — a short "CI + hook install" note in `scripts/README.md` and a one-line pointer in `backend.md`.
 
 ## 11. Deferred: Continuous Deployment (future phase, not built now)
 
