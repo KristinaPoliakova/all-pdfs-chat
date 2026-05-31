@@ -2,7 +2,7 @@
 name = "all-pdfs-chat-backend"
 version = "0.1.0"
 description = "Backend for all-pdfs-chat — upload PDFs and ask questions about their content"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.14"
 license = "Apache-2.0"
 dependencies = [
