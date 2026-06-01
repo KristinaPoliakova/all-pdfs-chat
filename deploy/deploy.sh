@@ -24,12 +24,17 @@ $COMPOSE pull api worker frontend
 
 echo "[deploy] ensuring postgres is up..."
 $COMPOSE up -d postgres
+pg_ok=0
 for _ in $(seq 1 30); do
   if $COMPOSE exec -T postgres pg_isready -U all_pdfs_chat -d all_pdfs_chat >/dev/null 2>&1; then
-    break
+    pg_ok=1; break
   fi
   sleep 2
 done
+if [ "$pg_ok" -ne 1 ]; then
+  echo "[deploy] postgres did not become ready in time" >&2
+  exit 1
+fi
 
 echo "[deploy] backing up database before migration..."
 "${APP_DIR}/deploy/backup.sh" predeploy

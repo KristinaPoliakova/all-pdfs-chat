@@ -13,9 +13,13 @@ ts="$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
 echo "[backup] dumping database (${LABEL})..."
+dump_file="${BACKUP_DIR}/db-${LABEL}-${ts}.dump"
+# Dump to a .partial file and promote on success, so a failed dump never
+# leaves a 0-byte file that looks like a valid backup during a restore.
 $COMPOSE exec -T postgres sh -c \
   'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U all_pdfs_chat -d all_pdfs_chat -Fc' \
-  > "${BACKUP_DIR}/db-${LABEL}-${ts}.dump"
+  > "${dump_file}.partial"
+mv "${dump_file}.partial" "${dump_file}"
 
 echo "[backup] archiving uploads volume..."
 docker run --rm \
@@ -26,4 +30,4 @@ docker run --rm \
 echo "[backup] pruning backups older than ${RETAIN_DAYS} days..."
 find "$BACKUP_DIR" -type f -mtime +"${RETAIN_DAYS}" -delete
 
-echo "[backup] done: ${BACKUP_DIR}/db-${LABEL}-${ts}.dump"
+echo "[backup] done: ${dump_file}"
