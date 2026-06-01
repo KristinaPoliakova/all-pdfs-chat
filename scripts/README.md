@@ -5,9 +5,11 @@
 | File | Use when |
 |------|----------|
 | `backend/.env.example` | **Local development.** `./scripts/dev.sh` copies this to `backend/.env` if missing. PostgreSQL (Docker Compose) + local disk uploads. |
-| `backend/.env.production.example` | **Production VM** (e.g. DigitalOcean droplet). Reference only — copy to `/etc/all-pdfs-chat/backend.env`, fill in secrets, and load from systemd. PostgreSQL + local storage. |
+| `backend/.env.production.example` | **Production VM** (e.g. DigitalOcean droplet). Reference only — copy to `/etc/all-pdfs-chat/backend.env`, fill in secrets, and load via Docker Compose `env_file` — see `docs/deployment.md`. PostgreSQL + local storage. |
 | `frontend/.env.local.example` | **Local frontend.** Copied to `frontend/.env.local` by `dev.sh` if missing. |
-| `frontend/.env.production.example` | **Production VM** (e.g. DigitalOcean droplet). Reference only — copy to `/etc/all-pdfs-chat/frontend.env`, load from systemd before `npm run build` / `next start`. |
+| `frontend/.env.production.example` | **Production VM** (e.g. DigitalOcean droplet). Reference only — copy to `/etc/all-pdfs-chat/frontend.env`, load via Docker Compose `env_file` — see `docs/deployment.md`. |
+
+> **Deployment:** production runs via Docker Compose on a single VM (nginx + TLS, GHCR images, tag-triggered GitHub Actions deploy). The previous systemd approach is superseded. See **`docs/deployment.md`**.
 
 Do not commit `backend/.env`, `frontend/.env.local`, or server env files with real credentials. **Do** commit `*.example` templates — they contain placeholders only.
 

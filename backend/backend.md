@@ -127,6 +127,8 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 
 ## Config
 
+**Deployment:** see `docs/deployment.md` (Docker Compose on a VM).
+
 - File: `backend/.env` (template: `.env.example`)
 - Code: `app/config/settings.py` → **`get_settings()`** is a cached singleton (`get_settings.cache_clear()` in tests)
 
