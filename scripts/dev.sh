@@ -9,8 +9,11 @@ BACKEND="$ROOT/backend"
 FRONTEND="$ROOT/frontend"
 SETUP_ONLY=false
 STOP_ONLY=false
+DOCKER_MODE=false
 API_PORT=8000
 UI_PORT=3000
+DEV_COMPOSE="docker-compose.dev.yml"
+DEV_DOCKER_PORT=8080
 
 SERVICE_PIDS=()
 PREFIX_PIDS=()
@@ -20,19 +23,27 @@ for arg in "$@"; do
   case "$arg" in
     --setup-only) SETUP_ONLY=true ;;
     --stop) STOP_ONLY=true ;;
+    --docker) DOCKER_MODE=true ;;
     -h|--help)
       cat <<'EOF'
 Usage: ./scripts/dev.sh [options]
 
-  Starts PostgreSQL (Docker Compose), backend API, background worker, and Next.js.
+  Default (native): starts PostgreSQL (Docker Compose) plus the backend API,
+  background worker, and Next.js as local processes with hot reload.
   Press Ctrl+C to stop app processes (PostgreSQL keeps running).
 
 Options:
   --setup-only   Copy env files, start Postgres, install dependencies; do not start app servers
   --stop         Stop orphaned dev servers on ports 8000 and 3000
+  --docker       Run the FULL stack in containers (api, worker, frontend, nginx, postgres)
+                 from docker-compose.dev.yml — a high-fidelity mirror of production
+                 (incl. nginx routing) for a pre-release smoke test. Serves
+                 http://localhost:8080. No hot reload — use the native mode for daily work.
+  --docker --stop  Tear the containerized dev stack down (docker compose down)
   -h, --help     Show this help
 
-Prerequisites: PostgreSQL (Docker Compose or local install), uv, Node.js 20+, npm
+Prerequisites: native mode needs PostgreSQL (Docker), uv, Node.js 20+, npm.
+               --docker mode needs only Docker.
 EOF
       exit 0
       ;;
@@ -49,6 +60,30 @@ die() { printf '\033[1;31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
+}
+
+# --- Containerized full-stack dev (docker-compose.dev.yml) -------------------
+run_docker_dev() {
+  require_cmd docker
+  local compose=(docker compose -f "$DEV_COMPOSE")
+  log "Building images (first run can take a few minutes)…"
+  (cd "$ROOT" && "${compose[@]}" build)
+  log "Starting PostgreSQL…"
+  (cd "$ROOT" && "${compose[@]}" up -d postgres)
+  log "Applying database migrations…"
+  (cd "$ROOT" && "${compose[@]}" run --rm api alembic upgrade head)
+  log "Starting full stack (api, worker, frontend, nginx)…"
+  (cd "$ROOT" && "${compose[@]}" up -d)
+  log "Full-stack dev running at http://localhost:${DEV_DOCKER_PORT}  (API via nginx: http://localhost:${DEV_DOCKER_PORT}/api/v1)"
+  log "Logs:  docker compose -f ${DEV_COMPOSE} logs -f"
+  log "Stop:  ./scripts/dev.sh --docker --stop"
+}
+
+stop_docker_dev() {
+  require_cmd docker
+  log "Stopping containerized dev stack…"
+  (cd "$ROOT" && docker compose -f "$DEV_COMPOSE" down)
+  log "Done."
 }
 
 # Reads stdin and prints lines prefixed with [tag].
@@ -310,6 +345,15 @@ run_dev() {
   log "All services running. Open http://localhost:${UI_PORT} — Ctrl+C to stop."
   wait
 }
+
+if $DOCKER_MODE; then
+  if $STOP_ONLY; then
+    stop_docker_dev
+  else
+    run_docker_dev
+  fi
+  exit 0
+fi
 
 require_cmd uv
 require_cmd node
