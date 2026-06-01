@@ -7,86 +7,101 @@ Actions workflow on a `vX.Y.Z` tag.
 
 ## 1. One-time droplet provisioning (greenfield)
 
+> `sudo` steps run as an admin user on the droplet; the app itself runs as the
+> unprivileged **`deploy`** user, so several resources are owned by `deploy`.
+> Step 6 (`scp`) runs **from your local machine**; the rest run on the droplet.
+
 1. **Create the droplet** (Ubuntu LTS) and a DNS **A record** pointing your domain at its IP.
 2. **Install Docker Engine + Compose plugin:**
    ```bash
    curl -fsSL https://get.docker.com | sh
    docker compose version
    ```
-3. **Create a deploy user** and add your CI SSH **public** key to `~/.ssh/authorized_keys`:
+3. **Create the `deploy` user** and add your CI SSH **public** key:
    ```bash
-   adduser --disabled-password --gecos "" deploy
-   usermod -aG docker deploy
-   install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-   nano /home/deploy/.ssh/authorized_keys   # paste the CI public key
-   chown deploy:deploy /home/deploy/.ssh/authorized_keys && chmod 600 /home/deploy/.ssh/authorized_keys
+   sudo adduser --disabled-password --gecos "" deploy
+   sudo usermod -aG docker deploy
+   sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+   sudo nano /home/deploy/.ssh/authorized_keys   # paste the CI public key
+   sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys && sudo chmod 600 /home/deploy/.ssh/authorized_keys
    ```
 4. **Firewall:**
    ```bash
-   ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw --force enable
+   sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw --force enable
    ```
-5. **App directory + secret env files:**
+5. **App dir + backup/log paths (owned by `deploy`):**
    ```bash
    sudo install -d -o deploy -g deploy /opt/all-pdfs-chat
-   sudo install -d -m 750 /etc/all-pdfs-chat
-   sudo cp backend/.env.production.example  /etc/all-pdfs-chat/backend.env
-   sudo cp frontend/.env.production.example /etc/all-pdfs-chat/frontend.env
-   sudo chmod 600 /etc/all-pdfs-chat/*.env
-   sudo nano /etc/all-pdfs-chat/backend.env    # set a strong DB password in DATABASE_URL (host: postgres)
+   sudo install -d -o deploy -g deploy /var/backups/all-pdfs-chat
+   sudo install -o deploy -g deploy -m 644 /dev/null /var/log/all-pdfs-chat-backup.log
    ```
-6. **Compose interpolation env** `/opt/all-pdfs-chat/.env` (owned by deploy, mode 600):
+6. **Place deploy files + env templates on the droplet (from your local machine):**
    ```bash
-   cat > /opt/all-pdfs-chat/.env <<'EOF'
+   scp docker-compose.prod.yml deploy@<host>:/opt/all-pdfs-chat/
+   scp -r deploy deploy@<host>:/opt/all-pdfs-chat/
+   scp backend/.env.production.example  deploy@<host>:/opt/all-pdfs-chat/backend.env.example
+   scp frontend/.env.production.example deploy@<host>:/opt/all-pdfs-chat/frontend.env.example
+   ```
+7. **Secret env files** (owned by `deploy`, who runs Compose):
+   ```bash
+   sudo install -d -o deploy -g deploy -m 750 /etc/all-pdfs-chat
+   sudo cp /opt/all-pdfs-chat/backend.env.example  /etc/all-pdfs-chat/backend.env
+   sudo cp /opt/all-pdfs-chat/frontend.env.example /etc/all-pdfs-chat/frontend.env
+   sudo chown deploy:deploy /etc/all-pdfs-chat/*.env
+   sudo chmod 600 /etc/all-pdfs-chat/*.env
+   sudo nano /etc/all-pdfs-chat/backend.env   # set a strong DB password in DATABASE_URL (host: postgres)
+   ```
+8. **Compose interpolation env** `/opt/all-pdfs-chat/.env` (owned by `deploy`, mode 600):
+   ```bash
+   sudo -u deploy tee /opt/all-pdfs-chat/.env >/dev/null <<'EOF'
    POSTGRES_PASSWORD=<same password as in backend.env DATABASE_URL>
    IMAGE_TAG=latest
    EOF
-   chmod 600 /opt/all-pdfs-chat/.env
+   sudo chmod 600 /opt/all-pdfs-chat/.env
    ```
    > `POSTGRES_PASSWORD` here MUST equal the password embedded in `backend.env`'s `DATABASE_URL`.
-7. **Authenticate to GHCR** (read-only PAT with `read:packages`) — required because the images are private by default:
+9. **Authenticate to GHCR as the `deploy` user** (images are private; `deploy` runs the pulls):
    ```bash
-   echo <PAT> | docker login ghcr.io -u kristinapoliakova --password-stdin
+   sudo -u deploy bash -c 'echo <PAT> | docker login ghcr.io -u kristinapoliakova --password-stdin'
    ```
-8. **Place the deploy files** (first time; CI keeps them in sync afterwards). From your machine:
-   ```bash
-   scp docker-compose.prod.yml -r deploy/ deploy@<host>:/opt/all-pdfs-chat/
-   ```
+   `<PAT>` is a GitHub token with `read:packages`.
 
-## 2. TLS bootstrap + first bring-up (first time)
+## 2. First bring-up + TLS (first time)
 
-The nginx config references `/etc/letsencrypt/live/app/`. Seed a temporary
-self-signed cert so nginx can start, run migrations before the app starts
-(prod startup fails on an empty/stale schema), bring everything up, then
-replace the cert with a real one.
+Run as the `deploy` user from `/opt/all-pdfs-chat`. Order matters: seed a
+temporary cert so nginx can start, bring the stack up (migrations first), then
+replace the temporary cert with a real one.
 
-> Images must already exist in GHCR. Either push a `vX.Y.Z` tag first (the
-> `Release` workflow builds + pushes them — see §4), or build/push manually.
-> `IMAGE_TAG` in `/opt/all-pdfs-chat/.env` selects which tag is pulled.
+> **Images must already exist in GHCR.** Push your first `vX.Y.Z` tag (the
+> `Release` workflow builds + pushes them and runs the deploy — see §3) or
+> build/push manually. Seeding the dummy cert (step 1) **before** that first
+> deploy is what prevents nginx from failing when the stack first comes up.
 
 ```bash
 cd /opt/all-pdfs-chat
 C="docker compose -f docker-compose.prod.yml"
 
-# 1) temporary self-signed cert so nginx can start on 443
+# 1) temporary self-signed cert so nginx can start on 443 (uses only the public certbot image)
 $C run --rm --entrypoint sh certbot -c '
   mkdir -p /etc/letsencrypt/live/app &&
   openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
     -keyout /etc/letsencrypt/live/app/privkey.pem \
     -out    /etc/letsencrypt/live/app/fullchain.pem -subj "/CN=localhost"'
 
-# 2) start postgres and apply migrations BEFORE the app starts
+# 2) bring up the stack — migrations BEFORE the app (prod startup fails on an empty/stale schema).
+#    (Or push your first tag and let the Release workflow run deploy.sh instead of these three.)
 $C up -d postgres
 $C run --rm api alembic upgrade head
-
-# 3) bring up the whole stack
 $C up -d
 
-# 4) issue the real certificate (replace domain + email)
+# 3) replace the temporary cert with a real one. Remove the self-signed material first so
+#    certbot writes the canonical live/app lineage (otherwise it creates live/app-0001 and
+#    nginx keeps serving the dummy cert):
+$C run --rm --entrypoint sh certbot -c \
+  'rm -rf /etc/letsencrypt/live/app /etc/letsencrypt/archive/app /etc/letsencrypt/renewal/app.conf'
 $C run --rm certbot certonly \
   --webroot -w /var/www/certbot --cert-name app \
-  -d <your-domain> --email <you@example.com> --agree-tos --no-eff-email --force-renewal
-
-# 5) reload nginx to use the real cert
+  -d <your-domain> --email <you@example.com> --agree-tos --no-eff-email
 $C exec nginx nginx -s reload
 
 # verify renewal works (no rate-limit hit)
