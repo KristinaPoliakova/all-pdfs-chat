@@ -18,6 +18,7 @@ FROM python:3.14-slim-bookworm AS runtime
 RUN useradd --create-home --uid 1000 appuser
 WORKDIR /app
 COPY --from=builder --chown=appuser:appuser /app /app
+RUN mkdir -p /var/lib/all-pdfs-chat/uploads && chown -R appuser:appuser /var/lib/all-pdfs-chat
 ENV PATH="/app/.venv/bin:$PATH" \
     APP_ENV=prod
 USER appuser
