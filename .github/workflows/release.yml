@@ -36,9 +36,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Resolve image tag
         id: meta
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
@@ -81,13 +83,16 @@ jobs:
           target: "/opt/all-pdfs-chat"
       - name: Run deploy on the droplet
         uses: appleboy/ssh-action@v1
+        env:
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.tag }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
+          envs: IMAGE_TAG
           script: |
             set -e
             cd /opt/all-pdfs-chat
             chmod +x deploy/deploy.sh deploy/backup.sh
-            IMAGE_TAG="${{ needs.build-and-push.outputs.tag }}" bash deploy/deploy.sh
+            IMAGE_TAG="$IMAGE_TAG" bash deploy/deploy.sh
