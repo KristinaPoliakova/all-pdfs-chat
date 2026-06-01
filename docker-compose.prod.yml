@@ -1,0 +1,92 @@
+name: all-pdfs-chat
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: all_pdfs_chat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in /opt/all-pdfs-chat/.env}
+      POSTGRES_DB: all_pdfs_chat
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U all_pdfs_chat -d all_pdfs_chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [appnet]
+
+  api:
+    image: ghcr.io/kristinapoliakova/all-pdfs-chat-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: /etc/all-pdfs-chat/backend.env
+    volumes:
+      - uploads:/var/lib/all-pdfs-chat/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [appnet]
+    # API command comes from the image: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    image: ghcr.io/kristinapoliakova/all-pdfs-chat-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    env_file: /etc/all-pdfs-chat/backend.env
+    volumes:
+      - uploads:/var/lib/all-pdfs-chat/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [appnet]
+
+  frontend:
+    image: ghcr.io/kristinapoliakova/all-pdfs-chat-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: /etc/all-pdfs-chat/frontend.env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      BACKEND_URL: http://api:8000
+    depends_on: [api]
+    networks: [appnet]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
+      - certs:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    depends_on: [api, frontend]
+    networks: [appnet]
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certs:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    networks: [appnet]
+    # Run on demand, e.g.:
+    #   docker compose -f docker-compose.prod.yml run --rm certbot certonly \
+    #     --webroot -w /var/www/certbot --cert-name app -d <domain> \
+    #     --email <email> --agree-tos --no-eff-email
+
+volumes:
+  pgdata:
+  uploads:
+  certs:
+  certbot-webroot:
+
+networks:
+  appnet:
