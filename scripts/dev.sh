@@ -13,7 +13,9 @@ DOCKER_MODE=false
 API_PORT=8000
 UI_PORT=3000
 DEV_COMPOSE="docker-compose.dev.yml"
+MONITORING_COMPOSE="docker-compose.monitoring.yml"
 DEV_DOCKER_PORT=8080
+GRAFANA_PORT=3001
 
 SERVICE_PIDS=()
 PREFIX_PIDS=()
@@ -38,8 +40,11 @@ Options:
   --docker       Run the FULL stack in containers (api, worker, frontend, nginx, postgres)
                  from docker-compose.dev.yml — a high-fidelity mirror of production
                  (incl. nginx routing) for a pre-release smoke test. Serves
-                 http://localhost:8080. No hot reload — use the native mode for daily work.
-  --docker --stop  Tear the containerized dev stack down (docker compose down)
+                 http://localhost:8080. Also starts the observability stack
+                 (docker-compose.monitoring.yml): Prometheus + Grafana at
+                 http://localhost:3001 (node-exporter is skipped — Linux-only).
+                 No hot reload — use the native mode for daily work.
+  --docker --stop  Tear the containerized dev stack + monitoring down (docker compose down)
   -h, --help     Show this help
 
 Prerequisites: native mode needs PostgreSQL (Docker), uv, Node.js 20+, npm.
@@ -63,26 +68,32 @@ require_cmd() {
 }
 
 # --- Containerized full-stack dev (docker-compose.dev.yml) -------------------
+# Layers the observability stack (docker-compose.monitoring.yml) on top, so the
+# containerized dev mirror also runs Prometheus + Grafana. node-exporter is
+# skipped locally: its host-mount propagation (/:/host:ro,rslave) is rejected by
+# Docker Desktop on macOS and yields no real host metrics there — it runs only on
+# the Linux droplet in production.
 run_docker_dev() {
   require_cmd docker
-  local compose=(docker compose -f "$DEV_COMPOSE")
+  local compose=(docker compose -f "$DEV_COMPOSE" -f "$MONITORING_COMPOSE")
   log "Building images (first run can take a few minutes)…"
   (cd "$ROOT" && "${compose[@]}" build)
   log "Starting PostgreSQL…"
   (cd "$ROOT" && "${compose[@]}" up -d postgres)
   log "Applying database migrations…"
   (cd "$ROOT" && "${compose[@]}" run --rm api alembic upgrade head)
-  log "Starting full stack (api, worker, frontend, nginx)…"
-  (cd "$ROOT" && "${compose[@]}" up -d)
+  log "Starting full stack + monitoring (api, worker, frontend, nginx, prometheus, grafana)…"
+  (cd "$ROOT" && "${compose[@]}" up -d --scale node-exporter=0)
   log "Full-stack dev running at http://localhost:${DEV_DOCKER_PORT}  (API via nginx: http://localhost:${DEV_DOCKER_PORT}/api/v1)"
-  log "Logs:  docker compose -f ${DEV_COMPOSE} logs -f"
+  log "Grafana at http://localhost:${GRAFANA_PORT}  (login admin/admin; Host dashboard is empty locally — node-exporter is Linux-only)"
+  log "Logs:  docker compose -f ${DEV_COMPOSE} -f ${MONITORING_COMPOSE} logs -f"
   log "Stop:  ./scripts/dev.sh --docker --stop"
 }
 
 stop_docker_dev() {
   require_cmd docker
-  log "Stopping containerized dev stack…"
-  (cd "$ROOT" && docker compose -f "$DEV_COMPOSE" down)
+  log "Stopping containerized dev stack (incl. monitoring)…"
+  (cd "$ROOT" && docker compose -f "$DEV_COMPOSE" -f "$MONITORING_COMPOSE" down)
   log "Done."
 }
 
