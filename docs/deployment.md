@@ -186,6 +186,8 @@ alerting yet.
 3. Start the stack (alongside the running app):
    ```bash
    cd /opt/all-pdfs-chat
+   # Refuse to start without the Grafana admin secret (avoids an admin/admin fallback).
+   test -f /etc/all-pdfs-chat/monitoring.env || { echo "ERROR: /etc/all-pdfs-chat/monitoring.env missing (see step 2)"; exit 1; }
    docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
    ```
 
@@ -206,4 +208,6 @@ Dashboards: **Host — node_exporter** and **FastAPI — API Overview**.
 - Prometheus retains 15 days of data in the `promdata` volume.
 - To stop monitoring without touching the app:
   `docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml stop prometheus node-exporter grafana`
+- **Do not** add `--remove-orphans` to `deploy.sh` / the app `up -d`: it would stop
+  Prometheus, Grafana, and node-exporter, since they aren't defined in `docker-compose.prod.yml`.
 - **Deferred:** Alertmanager/notifications, and worker/Postgres/nginx exporters.
