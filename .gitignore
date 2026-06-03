@@ -236,3 +236,4 @@ __marimo__/
 # Local superpowers implementation plans and specs (not for version control)
 docs/superpowers/plans/
 docs/superpowers/specs/
+/docs/superpowers/specs/
