@@ -179,7 +179,7 @@ alerting yet.
    ```
 2. Create the Grafana admin secret (mode 600):
    ```bash
-   sudo install -d -o deploy -g deploy /etc/all-pdfs-chat
+   # /etc/all-pdfs-chat already exists from the provisioning section above.
    sudo -u deploy install -m 600 /dev/null /etc/all-pdfs-chat/monitoring.env
    sudo -u deploy nano /etc/all-pdfs-chat/monitoring.env   # set from monitoring.env.example
    ```
@@ -189,9 +189,10 @@ alerting yet.
    docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
    ```
 
-The monitoring stack has its own lifecycle and survives app redeploys
-(`deploy.sh` only touches the app compose; Prometheus re-resolves the `api`
-service name on each scrape).
+The monitoring stack has its own lifecycle and survives app redeploys:
+`deploy.sh` only operates on the app compose file, so Prometheus, Grafana, and
+node-exporter are untouched during deploys (the API may be briefly unreachable
+mid-deploy; Prometheus simply records failed scrapes for that window).
 
 ### Accessing Grafana (SSH tunnel)
 ```bash
