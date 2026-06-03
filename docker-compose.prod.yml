@@ -62,8 +62,10 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      # Private testing: bound to loopback so nothing is exposed publicly
+      # (access via SSH tunnel). At launch, change back to "80:80" / "443:443".
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
     volumes:
       - ./deploy/nginx/conf.d:/etc/nginx/conf.d:ro
       - certs:/etc/letsencrypt
