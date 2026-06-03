@@ -165,36 +165,26 @@ $C exec api alembic current   # current DB revision
 
 ## Monitoring (Prometheus + Grafana)
 
-Metrics observability is an opt-in stack layered onto the prod compose via a
-second `-f` file (`docker-compose.monitoring.yml`). It scrapes the API's
-`/metrics` endpoint and host metrics (node_exporter); Grafana is published
-**only on `127.0.0.1:3001`** and reached via SSH tunnel. Dashboards-only — no
-alerting yet.
+Metrics observability runs in production as part of the normal deploy. A second
+compose file (`docker-compose.monitoring.yml`) adds Prometheus, node-exporter,
+and Grafana, and `deploy.sh` layers it onto `docker-compose.prod.yml` on every
+deploy — so a release tag ships and (re)starts monitoring automatically. It
+scrapes the API's `/metrics` endpoint and host metrics (node_exporter); Grafana
+is published **only on `127.0.0.1:3001`** and reached via SSH tunnel.
+Dashboards-only — no alerting yet.
 
 ### One-time setup (on the droplet)
-1. Place the monitoring files on the droplet (from your local machine):
-   ```bash
-   scp docker-compose.monitoring.yml deploy@<host>:/opt/all-pdfs-chat/
-   scp -r deploy/monitoring deploy@<host>:/opt/all-pdfs-chat/deploy/
-   ```
-2. Create the Grafana admin secret (mode 600):
-   ```bash
-   # /etc/all-pdfs-chat already exists from the provisioning section above.
-   sudo -u deploy install -m 600 /dev/null /etc/all-pdfs-chat/monitoring.env
-   sudo -u deploy nano /etc/all-pdfs-chat/monitoring.env   # set from monitoring.env.example
-   ```
-3. Start the stack (alongside the running app):
-   ```bash
-   cd /opt/all-pdfs-chat
-   # Refuse to start without the Grafana admin secret (avoids an admin/admin fallback).
-   test -f /etc/all-pdfs-chat/monitoring.env || { echo "ERROR: /etc/all-pdfs-chat/monitoring.env missing (see step 2)"; exit 1; }
-   docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
-   ```
-
-The monitoring stack has its own lifecycle and survives app redeploys:
-`deploy.sh` only operates on the app compose file, so Prometheus, Grafana, and
-node-exporter are untouched during deploys (the API may be briefly unreachable
-mid-deploy; Prometheus simply records failed scrapes for that window).
+Before the first release that includes monitoring, create the Grafana admin
+secret (mode 600). `deploy.sh` refuses to run without it, so Grafana can never
+start with the default `admin/admin`:
+```bash
+# /etc/all-pdfs-chat already exists from the provisioning section above.
+sudo -u deploy install -m 600 /dev/null /etc/all-pdfs-chat/monitoring.env
+sudo -u deploy nano /etc/all-pdfs-chat/monitoring.env   # set from monitoring.env.example
+```
+The compose file (`docker-compose.monitoring.yml`) and its config
+(`deploy/monitoring/`) are shipped to the droplet by the `Release` workflow — no
+manual copy needed.
 
 ### Accessing Grafana (SSH tunnel)
 ```bash
@@ -204,10 +194,10 @@ ssh -N -L 3001:127.0.0.1:3001 deploy@<host>
 Dashboards: **Host — node_exporter** and **FastAPI — API Overview**.
 
 ### Notes
+- Monitoring is deployed and updated by `deploy.sh` on every release — you don't
+  start it by hand.
 - `/metrics` is internal-only (scraped over `appnet`); nginx never routes it.
 - Prometheus retains 15 days of data in the `promdata` volume.
-- To stop monitoring without touching the app:
+- To stop monitoring without touching the app (until the next deploy restarts it):
   `docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml stop prometheus node-exporter grafana`
-- **Do not** add `--remove-orphans` to `deploy.sh` / the app `up -d`: it would stop
-  Prometheus, Grafana, and node-exporter, since they aren't defined in `docker-compose.prod.yml`.
 - **Deferred:** Alertmanager/notifications, and worker/Postgres/nginx exporters.

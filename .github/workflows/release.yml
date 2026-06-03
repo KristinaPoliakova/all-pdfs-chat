@@ -79,7 +79,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          source: "docker-compose.prod.yml,deploy/"
+          source: "docker-compose.prod.yml,docker-compose.monitoring.yml,deploy/"
           target: "/opt/all-pdfs-chat"
       - name: Run deploy on the droplet
         uses: appleboy/ssh-action@v1

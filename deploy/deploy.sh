@@ -4,12 +4,22 @@
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/all-pdfs-chat}"
-COMPOSE="docker compose -f ${APP_DIR}/docker-compose.prod.yml"
+# Monitoring is layered in via a second compose file so every deploy ships and
+# (re)starts Prometheus/Grafana/node-exporter alongside the app.
+COMPOSE="docker compose -f ${APP_DIR}/docker-compose.prod.yml -f ${APP_DIR}/docker-compose.monitoring.yml"
 ENV_FILE="${APP_DIR}/.env"
+MONITORING_ENV="/etc/all-pdfs-chat/monitoring.env"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
 cd "$APP_DIR"
 echo "[deploy] deploying IMAGE_TAG=${IMAGE_TAG}"
+
+# Require the Grafana admin secret so Grafana never silently starts with admin/admin.
+if [ ! -f "$MONITORING_ENV" ]; then
+  echo "[deploy] ERROR: ${MONITORING_ENV} is missing." >&2
+  echo "[deploy] Create it from monitoring.env.example (chmod 600) before deploying." >&2
+  exit 1
+fi
 
 # Persist IMAGE_TAG for compose interpolation, preserving other vars (e.g. POSTGRES_PASSWORD).
 touch "$ENV_FILE"
