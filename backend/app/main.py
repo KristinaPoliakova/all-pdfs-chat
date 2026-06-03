@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.exc import OperationalError
 
 import app.infrastructure.persistence.sql.models as _db_models  # noqa: F401 - register ORM models with Base.metadata
@@ -79,6 +80,11 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(api_router, prefix="/api/v1")
+
+    Instrumentator(
+        excluded_handlers=["/health", "/ready", "/metrics"],
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
     return app
 
 
