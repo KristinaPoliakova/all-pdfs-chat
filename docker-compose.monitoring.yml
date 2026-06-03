@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     env_file:
       - path: /etc/all-pdfs-chat/monitoring.env
-        required: false
+        required: false   # absent locally -> Grafana falls back to admin/admin (dev only)
     ports:
       - "127.0.0.1:3001:3000"
     volumes:
