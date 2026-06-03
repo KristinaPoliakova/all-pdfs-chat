@@ -162,3 +162,47 @@ $C logs -f api      # tail API logs
 $C logs -f worker   # tail worker logs
 $C exec api alembic current   # current DB revision
 ```
+
+## Monitoring (Prometheus + Grafana)
+
+Metrics observability is an opt-in stack layered onto the prod compose via a
+second `-f` file (`docker-compose.monitoring.yml`). It scrapes the API's
+`/metrics` endpoint and host metrics (node_exporter); Grafana is published
+**only on `127.0.0.1:3001`** and reached via SSH tunnel. Dashboards-only — no
+alerting yet.
+
+### One-time setup (on the droplet)
+1. Place the monitoring files on the droplet (from your local machine):
+   ```bash
+   scp docker-compose.monitoring.yml deploy@<host>:/opt/all-pdfs-chat/
+   scp -r deploy/monitoring deploy@<host>:/opt/all-pdfs-chat/deploy/
+   ```
+2. Create the Grafana admin secret (mode 600):
+   ```bash
+   sudo install -d -o deploy -g deploy /etc/all-pdfs-chat
+   sudo -u deploy install -m 600 /dev/null /etc/all-pdfs-chat/monitoring.env
+   sudo -u deploy nano /etc/all-pdfs-chat/monitoring.env   # set from monitoring.env.example
+   ```
+3. Start the stack (alongside the running app):
+   ```bash
+   cd /opt/all-pdfs-chat
+   docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
+   ```
+
+The monitoring stack has its own lifecycle and survives app redeploys
+(`deploy.sh` only touches the app compose; Prometheus re-resolves the `api`
+service name on each scrape).
+
+### Accessing Grafana (SSH tunnel)
+```bash
+ssh -N -L 3001:127.0.0.1:3001 deploy@<host>
+# then open http://localhost:3001 in your browser
+```
+Dashboards: **Host — node_exporter** and **FastAPI — API Overview**.
+
+### Notes
+- `/metrics` is internal-only (scraped over `appnet`); nginx never routes it.
+- Prometheus retains 15 days of data in the `promdata` volume.
+- To stop monitoring without touching the app:
+  `docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml stop prometheus node-exporter grafana`
+- **Deferred:** Alertmanager/notifications, and worker/Postgres/nginx exporters.
