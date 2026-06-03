@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix="/api/v1")
 
     Instrumentator(
-        excluded_handlers=["/health", "/ready", "/metrics"],
+        excluded_handlers=["^/health$", "^/ready$", "^/metrics$"],
     ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
     return app

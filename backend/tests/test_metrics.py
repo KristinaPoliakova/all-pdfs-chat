@@ -3,6 +3,12 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
+# NOTE: prometheus-client uses a global registry that is NOT reset between tests.
+# The instrumentator silently reuses the first registration when create_app() is
+# called multiple times, so metric values accumulate across tests. These tests are
+# written to be insensitive to accumulated counts — assertions on exact metric
+# values would be order-dependent and flaky.
+
 
 @pytest.mark.asyncio
 async def test_metrics_endpoint_exposes_prometheus_metrics(api_client: AsyncClient) -> None:
