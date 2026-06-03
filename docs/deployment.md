@@ -156,10 +156,12 @@ $C up -d
 ## 6. Operations cheatsheet
 
 ```bash
-C="docker compose -f docker-compose.prod.yml"
-$C ps               # service status
+# Include the monitoring file so the alias matches what deploy.sh manages.
+C="docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml"
+$C ps               # service status (app + monitoring)
 $C logs -f api      # tail API logs
 $C logs -f worker   # tail worker logs
+$C logs -f grafana  # tail Grafana logs
 $C exec api alembic current   # current DB revision
 ```
 
