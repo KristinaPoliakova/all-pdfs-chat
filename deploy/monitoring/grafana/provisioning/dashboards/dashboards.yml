@@ -4,7 +4,7 @@ providers:
   - name: all-pdfs-chat
     orgId: 1
     type: file
-    disableDeletion: false
+    disableDeletion: true
     editable: true
     updateIntervalSeconds: 30
     allowUiUpdates: true
