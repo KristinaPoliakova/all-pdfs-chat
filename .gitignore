@@ -164,6 +164,7 @@ backend/*.pdf
 !**/.env.example
 !**/.env.*.example
 backend/.env
+monitoring.env
 .envrc
 .venv
 env/

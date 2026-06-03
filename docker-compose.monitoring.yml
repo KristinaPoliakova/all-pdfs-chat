@@ -1,0 +1,53 @@
+# Observability stack — layered onto the prod (or dev) compose via -f flags so it
+# joins the same `appnet` and can scrape `api` and `node-exporter` by service name.
+#
+#   Prod:  docker compose -f docker-compose.prod.yml -f docker-compose.monitoring.yml up -d
+#   Dev:   docker compose -f docker-compose.dev.yml  -f docker-compose.monitoring.yml up -d
+#
+# Grafana is published ONLY on loopback (127.0.0.1:3001) — reach it via SSH tunnel.
+# Always run layered; standalone it has no `api`/`node-exporter` targets to scrape.
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+    volumes:
+      - ./deploy/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+    networks: [appnet]
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+    networks: [appnet]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    env_file:
+      - path: /etc/all-pdfs-chat/monitoring.env
+        required: false
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+    networks: [appnet]
+
+volumes:
+  promdata:
+  grafanadata:
+
+networks:
+  appnet:
