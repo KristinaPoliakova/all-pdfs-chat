@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.application.auth.deps import get_auth_service, get_current_user
 from app.application.auth.exceptions import InvalidCredentialsError, UserAlreadyExistsError
 from app.application.auth.service import AuthResult, AuthService
 from app.application.ports.users import UserRecord
+from app.config import settings as app_settings
+from app.core.rate_limit import get_client_ip, limiter
 from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -22,7 +24,9 @@ def _to_auth_response(result: AuthResult) -> AuthResponse:
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_auth_register, key_func=get_client_ip)
 async def register(
+    request: Request,
     body: RegisterRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
@@ -36,7 +40,9 @@ async def register(
 
 
 @router.post("/login", response_model=AuthResponse)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_auth_login, key_func=get_client_ip)
 async def login(
+    request: Request,
     body: LoginRequest,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
@@ -48,7 +54,9 @@ async def login(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_auth_logout, key_func=get_client_ip)
 async def logout(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
@@ -57,5 +65,9 @@ async def logout(
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: UserRecord = Depends(get_current_user)) -> UserResponse:
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_auth_me, key_func=get_client_ip)
+async def me(
+    request: Request,
+    current_user: UserRecord = Depends(get_current_user),
+) -> UserResponse:
     return _to_user_response(current_user)

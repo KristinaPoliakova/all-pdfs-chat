@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 
 from app.api.deps import get_pdf_repository, get_pdf_upload_service
 from app.application.auth.deps import get_current_user
 from app.application.ports.pdf import PdfRepository
 from app.application.ports.users import UserRecord
 from app.application.services.pdf_upload import PdfUploadService
+from app.config import settings as app_settings
+from app.core.rate_limit import get_user_id_or_ip, limiter
 from app.schemas.pdf import (
     PdfDocumentResponse,
     PdfPagesResponse,
@@ -27,7 +29,12 @@ def _pdf_location(pdf_id: str) -> str:
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(
+    lambda: app_settings.get_settings().rate_limit_pdf_upload,
+    key_func=get_user_id_or_ip,
+)
 async def upload_pdf(
+    request: Request,
     response: Response,
     file: UploadFile = File(...),
     current_user: UserRecord = Depends(get_current_user),
@@ -42,7 +49,9 @@ async def upload_pdf(
 
 
 @router.get("/{pdf_id}", response_model=PdfDocumentResponse, response_model_exclude_none=True)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
 async def get_pdf(
+    request: Request,
     pdf_id: str,
     current_user: UserRecord = Depends(get_current_user),
     pdf_repository: PdfRepository = Depends(get_pdf_repository),
@@ -62,7 +71,9 @@ async def get_pdf(
     response_model=PdfPagesResponse,
     response_model_exclude_none=True,
 )
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
 async def get_pdf_pages(
+    request: Request,
     pdf_id: str,
     current_user: UserRecord = Depends(get_current_user),
     pdf_repository: PdfRepository = Depends(get_pdf_repository),

@@ -48,6 +48,17 @@ class Settings(BaseSettings):
     parsing_poll_interval_seconds: float = 2.0
     parsing_max_wait_seconds: int = 600
     session_ttl_seconds: int = 7 * 24 * 3600
+    rate_limit_enabled: bool = True
+    rate_limit_auth_register: str = "5/minute"
+    rate_limit_auth_login: str = "5/minute"
+    rate_limit_auth_logout: str = "30/minute"
+    rate_limit_auth_me: str = "60/minute"
+    rate_limit_pdf_upload: str = "10/hour"
+    rate_limit_pdf_read: str = "60/minute"
+
+    @property
+    def rate_limits_active(self) -> bool:
+        return self.is_prod and self.rate_limit_enabled
 
     @property
     def is_prod(self) -> bool:

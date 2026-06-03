@@ -142,6 +142,9 @@ For a future UI: show “Processing…” while status is `uploaded` / `classify
 | `AZURE_STORAGE_*` | Required when `APP_ENV=prod` and `STORAGE_BACKEND=azure` |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated origins; empty disables CORS |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR` (default `INFO`) |
+| `RATE_LIMIT_*` | Per-route slowapi limits; active only when `APP_ENV=prod` and `RATE_LIMIT_ENABLED=true` (see `app/core/rate_limit.py`) |
+
+**Rate limiting:** In production, nginx applies a coarse per-IP floor on `/api/v1/` (`limit_req` in `deploy/nginx/conf.d/app.conf`). The API enforces stricter limits via slowapi: auth routes by client IP (`X-Forwarded-For` / `X-Real-IP`), PDF routes by user ID from the bearer session. Returns HTTP 429 with `Retry-After`. Disabled entirely in `dev`.
 
 ## `APP_ENV` wiring
 

@@ -14,6 +14,7 @@ from app.api.routes import health
 from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.rate_limit import configure_rate_limiting
 from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
 from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
 from app.infrastructure.factories.sessions import (
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="all-pdfs-chat", lifespan=lifespan)
     register_exception_handlers(app)
+    configure_rate_limiting(app)
 
     origins = settings.cors_origin_list
     if origins:
