@@ -10,6 +10,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.exc import OperationalError
 
 import app.infrastructure.persistence.sql.models as _db_models  # noqa: F401 - register ORM models with Base.metadata
+from app.agent.tracing import configure_tracing
 from app.api.router import api_router
 from app.api.routes import health
 from app.config.settings import get_settings
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
+    configure_tracing(settings)
 
     try:
         await init_database()

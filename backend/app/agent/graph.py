@@ -16,6 +16,7 @@ from langgraph.prebuilt import ToolNode
 from typing_extensions import TypedDict
 
 from app.agent.prompts import SYSTEM_PROMPT
+from app.agent.tracing import trace_node
 
 _PAGE_MARKER = re.compile(r"\[page (\d+)\]")
 
@@ -36,11 +37,13 @@ def build_agent_graph(
     model_with_tools = model.bind_tools(tools)
     tool_node = ToolNode(tools)
 
+    @trace_node("agent_node", "LLM")
     async def agent_node(state: AgentState) -> dict[str, Any]:
         messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
         response = await model_with_tools.ainvoke(messages)
         return {"messages": [response]}
 
+    @trace_node("tools_node", "TOOL")
     async def tools_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         result = await tool_node.ainvoke(state, config)
         tool_messages = result["messages"]

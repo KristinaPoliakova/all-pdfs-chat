@@ -10,6 +10,7 @@ services:
       POSTGRES_DB: all_pdfs_chat
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/init/02-create-mlflow-db.sql:/docker-entrypoint-initdb.d/02-create-mlflow-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U all_pdfs_chat -d all_pdfs_chat"]
       interval: 10s
@@ -84,11 +85,27 @@ services:
     #     --webroot -w /var/www/certbot --cert-name app -d <domain> \
     #     --email <email> --agree-tos --no-eff-email
 
+  mlflow:
+    build:
+      context: ./deploy/mlflow
+    restart: unless-stopped
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql://all_pdfs_chat:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/mlflow
+      --artifacts-destination /mlflow-artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow-artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [appnet]
+
 volumes:
   pgdata:
   uploads:
   certs:
   certbot-webroot:
+  mlflow_artifacts:
 
 networks:
   appnet:

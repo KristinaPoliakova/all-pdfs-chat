@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool, tool
 
 from app.agent.exceptions import MissingPdfContextError
+from app.agent.tracing import trace_node
 from app.application.ports.pdf import PdfRepository
 from app.parsing.types import PageExtract
 
@@ -49,6 +50,7 @@ def make_pdf_tools(
     char_limit: int,
 ) -> Sequence[BaseTool]:
     @tool
+    @trace_node("tool.search_pages", "TOOL")
     async def search_pages(query: str, config: RunnableConfig) -> str:
         """Search the document's pages for text relevant to the query.
 
@@ -67,6 +69,7 @@ def make_pdf_tools(
         return "\n\n".join(_format_page(extract, char_limit) for extract, _ in matches)
 
     @tool
+    @trace_node("tool.get_page", "TOOL")
     async def get_page(page_number: int, config: RunnableConfig) -> str:
         """Return the full text of one page, identified by its page number."""
         extracts = await repository.get_page_extracts(_pdf_id(config))

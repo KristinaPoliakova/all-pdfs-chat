@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start local dev: PostgreSQL + FastAPI API + background worker + Next.js UI.
+# Start local dev: PostgreSQL + MLflow + FastAPI API + background worker + Next.js UI.
 # Usage: ./scripts/dev.sh [--setup-only | --stop]
 
 set -euo pipefail
@@ -30,12 +30,13 @@ for arg in "$@"; do
       cat <<'EOF'
 Usage: ./scripts/dev.sh [options]
 
-  Default (native): starts PostgreSQL (Docker Compose) plus the backend API,
-  background worker, and Next.js as local processes with hot reload.
-  Press Ctrl+C to stop app processes (PostgreSQL keeps running).
+  Default (native): starts PostgreSQL and the MLflow tracking server (Docker
+  Compose) plus the backend API, background worker, and Next.js as local
+  processes with hot reload.
+  Press Ctrl+C to stop app processes (PostgreSQL and MLflow keep running).
 
 Options:
-  --setup-only   Copy env files, start Postgres, install dependencies; do not start app servers
+  --setup-only   Copy env files, start Postgres + MLflow, install dependencies; do not start app servers
   --stop         Stop orphaned dev servers on ports 8000 and 3000
   --docker       Run the FULL stack in containers (api, worker, frontend, nginx, postgres)
                  from docker-compose.dev.yml — a high-fidelity mirror of production
@@ -80,11 +81,18 @@ run_docker_dev() {
   (cd "$ROOT" && "${compose[@]}" build)
   log "Starting PostgreSQL…"
   (cd "$ROOT" && "${compose[@]}" up -d postgres)
+  log "Ensuring MLflow database (${MLFLOW_DB}) exists…"
+  (cd "$ROOT" && "${compose[@]}" exec -T postgres psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 <<SQL
+SELECT 'CREATE DATABASE ${MLFLOW_DB}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${MLFLOW_DB}')\gexec
+SQL
+  ) >/dev/null
   log "Applying database migrations…"
   (cd "$ROOT" && "${compose[@]}" run --rm api alembic upgrade head)
-  log "Starting full stack + monitoring (api, worker, frontend, nginx, prometheus, grafana)…"
+  log "Starting full stack + monitoring (api, worker, frontend, nginx, mlflow, prometheus, grafana)…"
   (cd "$ROOT" && "${compose[@]}" up -d --scale node-exporter=0)
   log "Full-stack dev running at http://localhost:${DEV_DOCKER_PORT}  (API via nginx: http://localhost:${DEV_DOCKER_PORT}/api/v1)"
+  log "MLflow UI at http://localhost:${MLFLOW_PORT}  (tracing is ON in this mirror)"
   log "Grafana at http://localhost:${GRAFANA_PORT}  (login admin/admin; Host dashboard is empty locally — node-exporter is Linux-only)"
   log "Logs:  docker compose -f ${DEV_COMPOSE} -f ${MONITORING_COMPOSE} logs -f"
   log "Stop:  ./scripts/dev.sh --docker --stop"
@@ -167,6 +175,12 @@ PG_PORT="${POSTGRES_PORT:-5432}"
 PG_USER="${POSTGRES_USER:-all_pdfs_chat}"
 PG_DB="${POSTGRES_DB:-all_pdfs_chat}"
 PG_TEST_DB="${POSTGRES_TEST_DB:-all_pdfs_chat_test}"
+# Host port for the MLflow UI. Defaults to 5001 because macOS' AirPlay Receiver
+# squats on 5000 and answers with HTTP 403. Exported so docker-compose.yml's
+# ${MLFLOW_HOST_PORT} mapping matches the URL we print and suggest.
+MLFLOW_DB="${MLFLOW_DB:-mlflow}"
+MLFLOW_PORT="${MLFLOW_HOST_PORT:-${MLFLOW_PORT:-5001}}"
+export MLFLOW_HOST_PORT="$MLFLOW_PORT"
 
 postgres_is_reachable() {
   if command -v pg_isready >/dev/null 2>&1; then
@@ -253,6 +267,29 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${PG_TEST_DB}')\gexec
 SQL
 }
 
+# MLflow tracking server (self-hosted, reuses the Postgres container). Only the
+# Docker path is supported — the server runs from the docker-compose.yml `mlflow`
+# service. Tracing itself stays opt-in: the app emits traces only when
+# TRACING_ENABLED=true (set it, plus MLFLOW_TRACKING_URI, in backend/.env).
+ensure_mlflow() {
+  if ! command -v docker >/dev/null 2>&1; then
+    warn "Docker not found — skipping MLflow tracking server (tracing will be unavailable)."
+    return 0
+  fi
+  ensure_mlflow_database_docker
+  log "Starting MLflow tracking server (docker compose; first run builds the image)…"
+  (cd "$ROOT" && docker compose up -d mlflow)
+  log "MLflow UI: http://localhost:${MLFLOW_PORT}  (enable tracing via TRACING_ENABLED=true + MLFLOW_TRACKING_URI=http://localhost:${MLFLOW_PORT} in backend/.env)"
+}
+
+ensure_mlflow_database_docker() {
+  (cd "$ROOT" && docker compose exec -T postgres psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 <<SQL
+SELECT 'CREATE DATABASE ${MLFLOW_DB}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${MLFLOW_DB}')\gexec
+SQL
+  ) >/dev/null
+}
+
 ensure_backend_deps() {
   log "Syncing backend dependencies (uv sync)…"
   (cd "$BACKEND" && uv sync)
@@ -292,6 +329,7 @@ run_setup() {
   ensure_backend_env
   ensure_frontend_env
   ensure_postgres
+  ensure_mlflow
   ensure_backend_deps
   run_database_migrations
   ensure_frontend_deps

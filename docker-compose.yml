@@ -17,5 +17,22 @@ services:
       retries: 10
       start_period: 10s
 
+  mlflow:
+    build:
+      context: ./deploy/mlflow
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql://all_pdfs_chat:devpassword@postgres:5432/mlflow
+      --artifacts-destination /mlflow-artifacts
+    # Host port defaults to 5001 to avoid the macOS AirPlay Receiver on 5000.
+    ports:
+      - "127.0.0.1:${MLFLOW_HOST_PORT:-5001}:5000"
+    volumes:
+      - mlflow_artifacts:/mlflow-artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  mlflow_artifacts:

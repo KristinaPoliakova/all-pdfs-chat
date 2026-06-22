@@ -28,6 +28,7 @@ dependencies = [
     "langchain-ollama>=1.1.0",
     "langgraph-checkpoint-postgres>=3.1.0",
     "psycopg-pool>=3.3.1",
+    "mlflow-tracing==3.14.0",
 ]
 
 [dependency-groups]
@@ -81,3 +82,7 @@ source = ["app"]
 
 [tool.uv]
 default-groups = ["dev"]
+
+[[tool.mypy.overrides]]
+module = ["mlflow.*"]
+ignore_missing_imports = true

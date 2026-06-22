@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     agent_max_tool_iterations: int = 5
     agent_timeout_seconds: int = 60
     agent_tool_char_limit: int = 6000
+    tracing_enabled: bool = False
+    mlflow_tracking_uri: str = ""
+    mlflow_experiment: str = "all-pdfs-chat-agent"
     session_ttl_seconds: int = 7 * 24 * 3600
     rate_limit_enabled: bool = True
     rate_limit_auth_register: str = "5/minute"

@@ -164,3 +164,13 @@ def test_agent_settings_have_defaults() -> None:
     assert settings.agent_max_tool_iterations == 5
     assert settings.agent_timeout_seconds == 60
     assert settings.agent_tool_char_limit == 6000
+
+
+def test_tracing_settings_have_defaults() -> None:
+    from tests.settings_helpers import make_test_settings
+
+    settings = make_test_settings()
+
+    assert settings.tracing_enabled is False
+    assert settings.mlflow_tracking_uri == ""
+    assert settings.mlflow_experiment == "all-pdfs-chat-agent"

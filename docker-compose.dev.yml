@@ -9,6 +9,8 @@
 #   - builds images from ./backend and ./frontend instead of pulling GHCR
 #   - nginx is HTTP-only on :8080 (no TLS/certbot)
 #   - config is inline (no /etc/all-pdfs-chat env files); separate project name + volumes
+#   - tracing is ON (TRACING_ENABLED) and the MLflow UI is published to
+#     127.0.0.1:5000 (prod keeps that port unpublished)
 # This is NOT the daily inner loop — use `./scripts/dev.sh` (native, hot-reload) for that.
 name: all-pdfs-chat-dev
 
@@ -20,6 +22,8 @@ x-backend-env: &backend-env
   CLASSIFICATION_ENABLED: "true"
   PARSING_ENABLED: "false"
   LOG_LEVEL: INFO
+  TRACING_ENABLED: "true"
+  MLFLOW_TRACKING_URI: http://mlflow:5000
 
 services:
   postgres:
@@ -30,6 +34,7 @@ services:
       POSTGRES_DB: all_pdfs_chat
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres/init/02-create-mlflow-db.sql:/docker-entrypoint-initdb.d/02-create-mlflow-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U all_pdfs_chat -d all_pdfs_chat"]
       interval: 10s
@@ -85,9 +90,29 @@ services:
     depends_on: [api, frontend]
     networks: [appnet]
 
+  mlflow:
+    build:
+      context: ./deploy/mlflow
+    command: >
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql://all_pdfs_chat:devpassword@postgres:5432/mlflow
+      --artifacts-destination /mlflow-artifacts
+    # Published to loopback (local-only deviation from prod) so the MLflow UI is
+    # reachable during a mirror run; the api reaches it internally at http://mlflow:5000.
+    # Host port defaults to 5001 to avoid the macOS AirPlay Receiver on 5000.
+    ports:
+      - "127.0.0.1:${MLFLOW_HOST_PORT:-5001}:5000"
+    volumes:
+      - mlflow_artifacts:/mlflow-artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [appnet]
+
 volumes:
   pgdata:
   uploads:
+  mlflow_artifacts:
 
 networks:
   appnet:

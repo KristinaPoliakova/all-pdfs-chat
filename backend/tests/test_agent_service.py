@@ -121,6 +121,45 @@ async def test_answer_continues_after_tool_failure() -> None:
     assert result.answer == "final answer"
 
 
+async def test_answer_succeeds_when_tracing_backend_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.agent.tracing as tracing_mod
+
+    class Boom:
+        class tracing:
+            @staticmethod
+            def disable() -> None:
+                return None
+
+        @staticmethod
+        def start_span(*args: object, **kwargs: object) -> object:
+            raise RuntimeError("mlflow down")
+
+        @staticmethod
+        def update_current_trace(**kwargs: object) -> None:
+            raise RuntimeError("mlflow down")
+
+    monkeypatch.setattr(tracing_mod, "mlflow", Boom)
+    monkeypatch.setattr(tracing_mod, "_enabled", True)
+
+    repo, pdf_id = await _repo_with_pages([(1, "alpha"), (2, "the tax invoice total")])
+    model = ScriptedChatModel(
+        responses=[
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "search_pages", "args": {"query": "tax"}, "id": "c1"}],
+            ),
+            AIMessage(content="The total is on page 2."),
+        ]
+    )
+    service = _service(repo, model)
+
+    result = await service.answer(pdf_id=pdf_id, user_id="u1", message="what is the total?")
+
+    assert result.citations == [2]
+
+
 def test_message_text_handles_list_content() -> None:
     blocks = [{"type": "text", "text": "hello"}, {"type": "text", "text": "world"}]
 

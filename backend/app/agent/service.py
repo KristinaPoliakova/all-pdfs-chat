@@ -12,6 +12,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from app.agent.exceptions import AgentTimeoutError, AgentUnavailableError
 from app.agent.graph import build_agent_graph
 from app.agent.tools import make_pdf_tools
+from app.agent.tracing import agent_trace
 from app.application.ports.chat import ChatAnswer
 from app.application.ports.pdf import PdfRepository
 from app.config.settings import Settings
@@ -32,6 +33,7 @@ class LangGraphChatService:
     ) -> None:
         self._repository = repository
         self._timeout = settings.agent_timeout_seconds
+        self._app_env = settings.app_env
         tools = list(
             make_pdf_tools(
                 repository,
@@ -47,30 +49,37 @@ class LangGraphChatService:
         )
 
     async def answer(self, *, pdf_id: str, user_id: str, message: str) -> ChatAnswer:
-        extracts = await self._repository.get_page_extracts(pdf_id)
-        if not extracts:
-            return ChatAnswer(answer=_EMPTY_DOCUMENT_ANSWER, citations=[])
+        with agent_trace(
+            user_id=user_id, pdf_id=pdf_id, app_env=self._app_env, message=message
+        ) as trace:
+            extracts = await self._repository.get_page_extracts(pdf_id)
+            if not extracts:
+                answer = ChatAnswer(answer=_EMPTY_DOCUMENT_ANSWER, citations=[])
+                trace.set_outputs({"answer": answer.answer, "citations": answer.citations})
+                return answer
 
-        config: RunnableConfig = {"configurable": {"thread_id": pdf_id, "pdf_id": pdf_id}}
-        inputs: dict[str, Any] = {
-            "messages": [HumanMessage(content=message)],
-            "steps": 0,
-            "cited_pages": [],
-        }
-        try:
-            result = await asyncio.wait_for(
-                self._graph.ainvoke(inputs, config),
-                timeout=self._timeout,
-            )
-        except TimeoutError as exc:
-            raise AgentTimeoutError("The assistant took too long to respond.") from exc
-        except Exception as exc:
-            logger.exception("Agent run failed for pdf_id=%s", pdf_id)
-            raise AgentUnavailableError("The assistant is temporarily unavailable.") from exc
+            config: RunnableConfig = {"configurable": {"thread_id": pdf_id, "pdf_id": pdf_id}}
+            inputs: dict[str, Any] = {
+                "messages": [HumanMessage(content=message)],
+                "steps": 0,
+                "cited_pages": [],
+            }
+            try:
+                result = await asyncio.wait_for(
+                    self._graph.ainvoke(inputs, config),
+                    timeout=self._timeout,
+                )
+            except TimeoutError as exc:
+                raise AgentTimeoutError("The assistant took too long to respond.") from exc
+            except Exception as exc:
+                logger.exception("Agent run failed for pdf_id=%s", pdf_id)
+                raise AgentUnavailableError("The assistant is temporarily unavailable.") from exc
 
-        answer_text = _message_text(result["messages"][-1].content)
-        citations = sorted(set(result.get("cited_pages", [])))
-        return ChatAnswer(answer=answer_text, citations=citations)
+            answer_text = _message_text(result["messages"][-1].content)
+            citations = sorted(set(result.get("cited_pages", [])))
+            answer = ChatAnswer(answer=answer_text, citations=citations)
+            trace.set_outputs({"answer": answer.answer, "citations": answer.citations})
+            return answer
 
 
 def _message_text(content: object) -> str:
