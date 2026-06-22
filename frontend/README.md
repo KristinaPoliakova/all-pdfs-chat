@@ -65,7 +65,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Chat
 
-Chat is a **client-side stub** (`src/lib/chat/stub-chat.ts`) until a real chat API exists. When `processing_status` is `parsed`, the chat panel unlocks and shows placeholder assistant replies.
+Chat calls the backend endpoint `POST /pdfs/{id}/chat` via `src/lib/api/chat.ts`. When `processing_status` is `parsed`, the chat panel unlocks and assistant replies (with optional page citations) come from the assistant. Errors are surfaced inline via `chatErrorMessage` in `src/lib/api/errors.ts`.
 
 ## Scripts
 

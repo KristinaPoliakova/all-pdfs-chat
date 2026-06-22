@@ -35,3 +35,20 @@ export function uploadErrorMessage(err: ApiError): string {
       return 'Upload failed. Please try again.';
   }
 }
+
+export function chatErrorMessage(err: ApiError): string {
+  switch (err.status) {
+    case 401:
+      return 'Please sign in to continue.';
+    case 404:
+      return 'This PDF could not be found.';
+    case 409:
+      return 'This PDF is not ready for chat yet. Please wait for parsing to finish.';
+    case 502:
+      return err.detail || 'The assistant is temporarily unavailable. Please try again.';
+    case 504:
+      return err.detail || 'The assistant took too long to respond. Please try again.';
+    default:
+      return 'Something went wrong. Please try again.';
+  }
+}

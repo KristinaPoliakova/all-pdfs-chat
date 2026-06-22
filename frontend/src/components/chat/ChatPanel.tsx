@@ -1,7 +1,16 @@
 'use client';
 
 import { useCallback, useId, useState, type KeyboardEvent } from 'react';
-import { sendChatMessage, type ChatMessage } from '@/lib/chat/stub-chat';
+import { sendChatMessage } from '@/lib/api/chat';
+import { ApiError, chatErrorMessage } from '@/lib/api/errors';
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+  citations?: number[];
+}
 
 function LockIcon() {
   return (
@@ -25,8 +34,9 @@ function LockIcon() {
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
+  const hasCitations = !isUser && message.citations !== undefined && message.citations.length > 0;
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
       <p
         className={[
           'max-w-[85%] rounded-lg px-3 py-2 text-sm',
@@ -37,6 +47,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       >
         {message.content}
       </p>
+      {hasCitations ? (
+        <p className="mt-1 px-1 text-xs text-muted">
+          Sources: p. {message.citations!.join(', ')}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -46,6 +61,7 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const send = useCallback(async () => {
     const text = draft.trim();
@@ -59,12 +75,24 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
     };
 
     setDraft('');
+    setError(null);
     setMessages((prev) => [...prev, userMessage]);
     setIsSending(true);
 
     try {
       const reply = await sendChatMessage(pdfId, text);
-      setMessages((prev) => [...prev, reply]);
+      const assistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: reply.answer,
+        createdAt: new Date().toISOString(),
+        citations: reply.citations,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? chatErrorMessage(err) : 'Something went wrong. Please try again.',
+      );
     } finally {
       setIsSending(false);
     }
@@ -113,10 +141,6 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
 
   return (
     <section className="mt-6 rounded-lg border border-border p-6" aria-labelledby={`${inputId}-heading`}>
-      <p className="mb-4 rounded-md border border-border bg-surface px-3 py-2 text-xs text-muted">
-        Preview mode — responses are placeholders
-      </p>
-
       <h2 id={`${inputId}-heading`} className="sr-only">
         Chat
       </h2>
@@ -128,6 +152,15 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
           messages.map((message) => <MessageBubble key={message.id} message={message} />)
         )}
       </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="mb-3 rounded-md border border-[var(--color-accent-red,#ef4444)] bg-surface px-3 py-2 text-sm text-foreground"
+        >
+          {error}
+        </p>
+      ) : null}
 
       <label htmlFor={inputId} className="sr-only">
         Chat message
