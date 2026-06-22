@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     azure_document_intelligence_api_key: str = ""
     parsing_poll_interval_seconds: float = 2.0
     parsing_max_wait_seconds: int = 600
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.1"
+    agent_search_top_k: int = 4
+    agent_max_tool_iterations: int = 5
+    agent_timeout_seconds: int = 60
+    agent_tool_char_limit: int = 6000
     session_ttl_seconds: int = 7 * 24 * 3600
     rate_limit_enabled: bool = True
     rate_limit_auth_register: str = "5/minute"

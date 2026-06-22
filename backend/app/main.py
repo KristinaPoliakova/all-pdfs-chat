@@ -16,6 +16,10 @@ from app.config.settings import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.rate_limit import configure_rate_limiting
+from app.infrastructure.factories.chat_checkpointer import (
+    close_chat_checkpointer,
+    init_chat_checkpointer,
+)
 from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
 from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
 from app.infrastructure.factories.sessions import (
@@ -50,6 +54,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     create_user_repository()
     create_session_repository()
 
+    await init_chat_checkpointer(settings)
+
     fastapi_app.state.db_initialized = True
     fastapi_app.state.ready = True
     yield
@@ -59,6 +65,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await reset_job_queue_state()
     await reset_pdf_repository_state()
     reset_file_storage_state()
+    await close_chat_checkpointer()
     await close_database()
 
 

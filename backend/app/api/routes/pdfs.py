@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 
-from app.api.deps import get_pdf_repository, get_pdf_upload_service
+from app.agent.exceptions import AgentTimeoutError, AgentUnavailableError
+from app.api.deps import get_chat_service, get_pdf_repository, get_pdf_upload_service
 from app.application.auth.deps import get_current_user
+from app.application.ports.chat import ChatService
 from app.application.ports.pdf import PdfRepository
 from app.application.ports.users import UserRecord
 from app.application.services.pdf_upload import PdfUploadService
+from app.classification.types import PdfProcessingStatus
 from app.config import settings as app_settings
 from app.core.rate_limit import get_user_id_or_ip, limiter
+from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.pdf import (
     PdfDocumentResponse,
     PdfPagesResponse,
@@ -87,3 +91,47 @@ async def get_pdf_pages(
         ) from None
     pages = await pdf_repository.get_pages(pdf_id)
     return PdfPagesResponse(pages=page_summaries_from_results(pages))
+
+
+@router.post("/{pdf_id}/chat", response_model=ChatResponse)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
+async def chat_with_pdf(
+    request: Request,
+    pdf_id: str,
+    body: ChatRequest,
+    current_user: UserRecord = Depends(get_current_user),
+    pdf_repository: PdfRepository = Depends(get_pdf_repository),
+    chat_service: ChatService = Depends(get_chat_service),
+) -> ChatResponse:
+    try:
+        record = await pdf_repository.get_for_user(pdf_id, current_user.id)
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF document not found",
+        ) from None
+
+    if record.processing_status != PdfProcessingStatus.PARSED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="PDF is not ready for chat yet",
+        )
+
+    try:
+        result = await chat_service.answer(
+            pdf_id=pdf_id,
+            user_id=current_user.id,
+            message=body.message,
+        )
+    except AgentTimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="The assistant took too long to respond. Please try again.",
+        ) from None
+    except AgentUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The assistant is temporarily unavailable. Please try again.",
+        ) from None
+
+    return ChatResponse(answer=result.answer, citations=result.citations)

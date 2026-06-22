@@ -16,6 +16,22 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+_LANGGRAPH_TABLES = frozenset(
+    {"checkpoints", "checkpoint_blobs", "checkpoint_writes", "checkpoint_migrations"}
+)
+
+
+def _include_object(
+    object_: object,
+    name: str | None,
+    type_: str,
+    reflected: bool,
+    compare_to: object,
+) -> bool:
+    if type_ == "table" and name in _LANGGRAPH_TABLES:
+        return False
+    return True
+
 
 def _migration_database_url() -> str:
     override = os.environ.get("ALEMBIC_DATABASE_URL", "").strip()
@@ -37,6 +53,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=_include_object,
     )
 
     with context.begin_transaction():
@@ -57,6 +74,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            include_object=_include_object,
         )
 
         with context.begin_transaction():

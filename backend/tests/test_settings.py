@@ -151,3 +151,16 @@ def test_rejects_invalid_storage_backend() -> None:
 def test_rejects_invalid_max_upload_size() -> None:
     with pytest.raises(ValueError, match="MAX_UPLOAD_SIZE_BYTES"):
         Settings(max_upload_size_bytes=0, _env_file=None)
+
+
+def test_agent_settings_have_defaults() -> None:
+    from tests.settings_helpers import make_test_settings
+
+    settings = make_test_settings()
+
+    assert settings.ollama_base_url == "http://localhost:11434"
+    assert settings.ollama_model == "llama3.1"
+    assert settings.agent_search_top_k == 4
+    assert settings.agent_max_tool_iterations == 5
+    assert settings.agent_timeout_seconds == 60
+    assert settings.agent_tool_char_limit == 6000

@@ -123,7 +123,12 @@ async def api_client(
     def _get_test_settings() -> Settings:
         return make_test_settings()
 
+    async def _skip_chat_checkpointer(settings: Settings | None = None) -> None:
+        return None
+
     monkeypatch.setattr("app.main.init_database", _skip_init_database)
+    monkeypatch.setattr("app.main.init_chat_checkpointer", _skip_chat_checkpointer)
+    monkeypatch.setattr("app.main.close_chat_checkpointer", _skip_chat_checkpointer)
     monkeypatch.setattr("app.main.get_settings", _get_test_settings)
     monkeypatch.setattr("app.config.settings.get_settings", _get_test_settings)
     monkeypatch.setattr(

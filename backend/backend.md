@@ -108,6 +108,7 @@ uv run python -m app.worker             # terminal 2 — background processing
 | `POST` | `/api/v1/pdfs` | Upload PDF (multipart field `file`, **Bearer token required**). **201** + `Location: /api/v1/pdfs/{id}` |
 | `GET` | `/api/v1/pdfs/{id}` | Document record + **`processing_status`** (**Bearer token**, owner only) |
 | `GET` | `/api/v1/pdfs/{id}/pages` | Per-page classification (**Bearer token**, owner only) |
+| `POST` | `/api/v1/pdfs/{id}/chat` | Ask a question about a parsed PDF (Bearer token, owner only). **200** + `{answer, citations}`; **409** until parsed |
 
 **Upload response:** `PdfDocumentResponse`
 
@@ -120,6 +121,8 @@ There is **no** server-side “wait until ready” or push (WebSocket/SSE). Prog
 3. Poll `GET /api/v1/pdfs/{id}` every 1–2s until `processing_status` reaches the state you need.
 4. When classified (or later): `GET /api/v1/pdfs/{id}/pages` for page classes.
 5. When `parsed`: text extracts are in the database (no GET endpoint yet); safe to enable chat/RAG.
+
+Once `processing_status == parsed`, the client can `POST /api/v1/pdfs/{id}/chat` with `{"message": "..."}` and receives `{"answer", "citations": [page numbers]}`. See [Agent (chat)](#agent-chat).
 
 Typical terminal statuses: `classified`, `parsed`, `classification_failed`, `parsing_failed`.
 
@@ -232,6 +235,45 @@ When `PARSING_ENABLED=false`, complex pages are skipped (simple pages still extr
 | Multiple `pipeline.run` tasks on one event loop | Throughput in one process | **Not planned** |
 
 Inside one job: `await` steps run in order (classify all pages, then parse). `asyncio.to_thread` offloads PyMuPDF/download from the event loop; it does not parallelize pages or jobs.
+
+## Agent (chat)
+
+`POST /api/v1/pdfs/{id}/chat` (Bearer token, owner only) answers questions about a parsed PDF. Body `{"message": "..."}`; returns `{"answer": "...", "citations": [page numbers]}`.
+
+| Status | Meaning |
+|--------|---------|
+| `200` | Answer produced + page-number citations |
+| `404` | PDF not found, or not owned by the caller |
+| `409` | PDF not yet `parsed` (no text to ground answers in) |
+| `422` | Empty or oversized `message` |
+| `502` | Model/runtime unavailable (e.g. Ollama not reachable) |
+| `504` | Agent exceeded `AGENT_TIMEOUT_SECONDS` |
+
+**How it works:** a hand-built LangGraph `StateGraph` runs a tool-calling loop (model ↔ tools) grounded in the parsed page text (`pdf_page_extracts`). Two retrieval tools are exposed to the model:
+
+- `search_pages` — find the most relevant pages for a query (top `AGENT_SEARCH_TOP_K`).
+- `get_page` — fetch the full text of a specific page.
+
+Answers cite the page numbers used, returned as `citations`.
+
+**Model (Ollama):** the model runs locally on [Ollama](https://ollama.com/) (free) and **must support tool calling** (e.g. `llama3.1`). To run it:
+
+```bash
+# install Ollama (see ollama.com), then:
+ollama pull llama3.1
+# ensure it serves at OLLAMA_BASE_URL (default http://localhost:11434)
+```
+
+**Conversation memory:** persisted by LangGraph's `AsyncPostgresSaver` in the `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, and `checkpoint_migrations` tables. These are created at startup via the saver's `setup()` and are **excluded from Alembic autogenerate** (so Alembic never tries to drop them — see `alembic/env.py`). `thread_id = pdf_id`, so each PDF has its own conversation thread.
+
+| Variable | Default | Notes |
+|----------|---------|--------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_MODEL` | `llama3.1` | Must support tool calling |
+| `AGENT_SEARCH_TOP_K` | `4` | Pages returned by `search_pages` |
+| `AGENT_MAX_TOOL_ITERATIONS` | `5` | Max model ↔ tool loops per request |
+| `AGENT_TIMEOUT_SECONDS` | `60` | Per-request agent timeout (→ `504`) |
+| `AGENT_TOOL_CHAR_LIMIT` | `6000` | Max characters returned by a single tool call |
 
 ## Worker logging
 
