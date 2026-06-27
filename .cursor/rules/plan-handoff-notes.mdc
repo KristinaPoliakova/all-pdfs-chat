@@ -1,0 +1,31 @@
+---
+description: When writing an implementation plan, always end it with a conversation-derived "Handoff notes / gotchas" section
+globs: docs/superpowers/plans/**
+alwaysApply: false
+---
+
+# Implementation plans must end with handoff notes
+
+Every implementation plan (e.g. under `docs/superpowers/plans/`) MUST end with a
+section titled:
+
+```
+## Handoff notes / gotchas (read before starting)
+```
+
+A fresh agent in a new session executes the plan with **zero** memory of the
+conversation that produced it. Scan the whole conversation and distill the
+tacit context that isn't already in the codebase or the task steps. Keep it to
+tight, concrete bullets — only what a fresh agent would get wrong or waste time
+rediscovering:
+
+- **Prior/related work this builds on** — existing modules, commits, files to read first (so it extends, not re-creates).
+- **Bugs already hit + traps to avoid** — ordering requirements, version/port quirks, platform gotchas surfaced in the conversation.
+- **Environment specifics** not obvious from code — ports, hostnames, OS quirks, resource limits (e.g. small VM), required service versions.
+- **Non-obvious constraints/decisions and why** — e.g. "default-off, best-effort, never block the request path"; "no new container due to RAM limit".
+- **Secrets / files not to touch or commit** — e.g. gitignored env files with real credentials; edit the `.example` instead.
+- **Tooling/hook behavior** the agent will hit — pre-edit gates, pre-commit/pre-push hooks.
+- **How success is verified** if non-obvious — visual check in a specific UI; expected latencies so slowness isn't mistaken for a bug.
+
+If the conversation surfaced no such context, still include the section with the
+load-bearing facts (prior work + how to verify).
