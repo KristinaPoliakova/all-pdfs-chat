@@ -218,6 +218,28 @@ def test_agent_trace_tags_http_trace_id_when_present(monkeypatch: pytest.MonkeyP
     assert calls[0].get("tags", {}).get("http.trace_id") == "abc123"
 
 
+def test_agent_trace_records_error_and_reraises(monkeypatch: pytest.MonkeyPatch) -> None:
+    # On failure the trace must record the error type (alongside session_id/user)
+    # and re-raise the ORIGINAL exception — not a TypeError from a bad call.
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(tracing_mod, "mlflow", _make_capturing_mlflow(calls))
+    monkeypatch.setattr(tracing_mod, "_enabled", True)
+    monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: None)
+
+    with pytest.raises(ValueError, match="boom"):
+        with tracing_mod.agent_trace(user_id="user-1", pdf_id="pdf-9", app_env="dev", message="hi"):
+            raise ValueError("boom")
+
+    error_calls = [c for c in calls if "error_type" in c.get("tags", {})]
+    assert len(error_calls) == 1
+    call = error_calls[0]
+    assert call.get("session_id") == "pdf-9"
+    assert call.get("user") == "user-1"
+    tags = call.get("tags", {})
+    assert tags.get("error_type") == "ValueError"
+    assert tags.get("pdf_id") == "pdf-9"
+
+
 async def test_trace_node_runs_fn_directly_when_disabled() -> None:
     tracing_mod._enabled = False
     calls: list[int] = []

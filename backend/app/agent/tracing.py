@@ -121,7 +121,11 @@ def agent_trace(
         try:
             yield _AgentTraceHandle(span)
         except Exception as exc:
-            _safe_update_trace({"error_type": type(exc).__name__})
+            _safe_update_trace(
+                session_id=pdf_id,
+                user=user_id,
+                tags={**tags, "error_type": type(exc).__name__},
+            )
             raise
 
 
