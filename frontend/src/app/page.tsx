@@ -1,5 +1,6 @@
 'use client';
 
+import { PdfLibrary } from '@/components/pdf/PdfLibrary';
 import { AppShell } from '@/components/layout/AppShell';
 import { UploadDropzone } from '@/components/upload/UploadDropzone';
 import { UploadErrorAlert } from '@/components/upload/UploadErrorAlert';
@@ -12,6 +13,7 @@ export default function Home() {
     <AppShell>
       <UploadDropzone upload={upload} />
       <UploadErrorAlert error={upload.error} returnTo="/" />
+      <PdfLibrary />
     </AppShell>
   );
 }

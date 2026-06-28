@@ -65,7 +65,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Chat
 
-Chat calls the backend endpoint `POST /pdfs/{id}/chat` via `src/lib/api/chat.ts`. When `processing_status` is `parsed`, the chat panel unlocks and assistant replies (with optional page citations) come from the assistant. Errors are surfaced inline via `chatErrorMessage` in `src/lib/api/errors.ts`.
+A PDF can have multiple conversations. From `/pdfs/[id]`, the sidebar creates a conversation (`POST /pdfs/{id}/conversations`) and lists existing ones (`GET /pdfs/{id}/conversations`); the "+ New conversation" button unlocks once `processing_status` is `parsed`. Selecting one opens `/pdfs/[id]/conversations/[conversationId]`, where the chat panel hydrates prior turns from the server (`GET /conversations/{id}/messages`) and sends new messages via `POST /conversations/{id}/chat` — all through `src/lib/api/conversations.ts`. Assistant replies carry optional page citations, and errors are surfaced inline via `chatErrorMessage` in `src/lib/api/errors.ts`.
 
 ## Scripts
 
@@ -87,8 +87,8 @@ npx playwright test
 
 ## Project layout
 
-- `src/app/` — routes (`/` upload, `/login`, `/register`, `/pdfs/[id]` status + chat)
-- `src/lib/api/` — typed fetch helpers (auth + PDFs)
+- `src/app/` — routes (`/` upload + PDF library, `/login`, `/register`, `/pdfs/[id]` document shell with header + conversation sidebar, `/pdfs/[id]/conversations/[conversationId]` chat)
+- `src/lib/api/` — typed fetch helpers (auth, PDFs, conversations)
 - `src/lib/auth/` — token session storage
 - `src/contexts/` — `AuthProvider`
 - `tests/unit/` — Vitest + Testing Library

@@ -2,6 +2,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 const PDF_ID = 'e2e-test-pdf-id';
+const CONVERSATION_ID = 'c1';
 const AUTH_TOKEN = 'e2e-test-token';
 const FIXTURE_PDF = path.join(process.cwd(), 'tests/fixtures/sample.pdf');
 
@@ -113,6 +114,46 @@ test.describe('upload → poll → chat (mocked API)', () => {
       });
     });
 
+    // Conversation routes. The sidebar lists conversations on mount, so the GET
+    // list must be served from the start; creating one returns a fresh id ('c1').
+    await page.route(`**/api/v1/pdfs/${PDF_ID}/conversations`, async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: CONVERSATION_ID,
+            pdf_id: PDF_ID,
+            title: null,
+            created_at: '2026-05-22T12:01:00.000Z',
+            updated_at: '2026-05-22T12:01:00.000Z',
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '[]',
+      });
+    });
+
+    await page.route(`**/api/v1/conversations/${CONVERSATION_ID}/messages`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ messages: [] }),
+      }),
+    );
+
+    await page.route(`**/api/v1/conversations/${CONVERSATION_ID}/chat`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ answer: 'Mocked answer.', citations: [1] }),
+      }),
+    );
+
     await page.goto('/');
 
     await expect(page.getByText('e2e@example.com')).toBeVisible({ timeout: 10_000 });
@@ -121,24 +162,30 @@ test.describe('upload → poll → chat (mocked API)', () => {
 
     await expect(page).toHaveURL(new RegExp(`/pdfs/${PDF_ID}$`), { timeout: 15_000 });
 
-    await expect(page.getByText('Chat unlocks when parsing completes')).toBeVisible();
+    // While processing, the detail layout shows the status card (not chat).
+    await expect(page.getByText('Processing your document')).toBeVisible();
 
+    // Polling drives the badge to "Ready" once the PDF is parsed.
     await expect(page.getByText('Ready', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Processing your document')).toBeHidden();
 
-    await expect(page.getByText('Chat unlocks when parsing completes')).toBeHidden();
+    // Before a conversation is open, the index shows the empty state — no chat,
+    // no "Preview mode" placeholder.
     await expect(
-      page.getByText('Preview mode — responses are placeholders'),
+      page.getByText('Select a conversation, or start a new one to chat about this PDF.'),
     ).toBeVisible();
 
-    const chatInput = page.getByRole('textbox');
-    await chatInput.fill('What is this document about?');
+    // Create a conversation and confirm we land on its chat route.
+    await page.getByRole('button', { name: /new conversation/i }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/pdfs/${PDF_ID}/conversations/${CONVERSATION_ID}$`),
+    );
+
+    // Send a message and verify the mocked answer renders.
+    await page.getByRole('textbox').fill('What is this document about?');
     await page.getByRole('button', { name: 'Send' }).click();
 
     await expect(page.getByText('What is this document about?')).toBeVisible();
-    await expect(
-      page.getByText(
-        'Chat API is not connected yet. Your PDF is parsed and ready — answers will appear here once the backend ships.',
-      ),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText('Mocked answer.')).toBeVisible({ timeout: 5_000 });
   });
 });

@@ -1,8 +1,11 @@
 'use client';
 
-import { useCallback, useId, useState, type KeyboardEvent } from 'react';
-import { sendChatMessage } from '@/lib/api/chat';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { sendConversationMessage } from '@/lib/api/conversations';
 import { ApiError, chatErrorMessage } from '@/lib/api/errors';
+import { useConversationMessages } from '@/hooks/useConversations';
+import type { ConversationMessage } from '@/types/conversation';
 
 export interface ChatMessage {
   id: string;
@@ -56,12 +59,43 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean }) {
+function toUiMessage(message: ConversationMessage): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: message.role,
+    content: message.content,
+    createdAt: new Date().toISOString(),
+    citations: message.citations,
+  };
+}
+
+export function ChatPanel({
+  pdfId,
+  conversationId,
+  enabled,
+}: {
+  pdfId: string;
+  conversationId: string;
+  enabled: boolean;
+}) {
   const inputId = useId();
+  const queryClient = useQueryClient();
+  const { data: history, isPending: historyPending } = useConversationMessages(conversationId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hydratedFor = useRef<string | null>(null);
+
+  // Reseed local messages from server history when the conversation changes
+  // or its history first loads. Local state then owns in-session turns.
+  useEffect(() => {
+    if (history && hydratedFor.current !== conversationId) {
+      hydratedFor.current = conversationId;
+      setMessages(history.map(toUiMessage));
+      setError(null);
+    }
+  }, [history, conversationId]);
 
   const send = useCallback(async () => {
     const text = draft.trim();
@@ -78,17 +112,25 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
     setError(null);
     setMessages((prev) => [...prev, userMessage]);
     setIsSending(true);
+    // Lock hydration: once the user sends, local state owns the transcript so a
+    // late-arriving history fetch can't overwrite in-session turns.
+    hydratedFor.current = conversationId;
 
     try {
-      const reply = await sendChatMessage(pdfId, text);
-      const assistantMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: reply.answer,
-        createdAt: new Date().toISOString(),
-        citations: reply.citations,
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      const reply = await sendConversationMessage(conversationId, text);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: reply.answer,
+          createdAt: new Date().toISOString(),
+          citations: reply.citations,
+        },
+      ]);
+      // Title may be set on the first turn; updated_at changes ordering.
+      void queryClient.invalidateQueries({ queryKey: ['conversations', pdfId] });
+      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
     } catch (err) {
       setError(
         err instanceof ApiError ? chatErrorMessage(err) : 'Something went wrong. Please try again.',
@@ -96,7 +138,7 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
     } finally {
       setIsSending(false);
     }
-  }, [draft, enabled, isSending, pdfId]);
+  }, [draft, enabled, isSending, conversationId, pdfId, queryClient]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== 'Enter' || e.shiftKey) return;
@@ -146,7 +188,9 @@ export function ChatPanel({ pdfId, enabled }: { pdfId: string; enabled: boolean 
       </h2>
 
       <div className="mb-4 max-h-80 space-y-3 overflow-y-auto" role="log" aria-live="polite">
-        {messages.length === 0 ? (
+        {historyPending && messages.length === 0 ? (
+          <p className="text-sm text-muted">Loading conversation…</p>
+        ) : messages.length === 0 ? (
           <p className="text-sm text-muted">Ask a question about this PDF.</p>
         ) : (
           messages.map((message) => <MessageBubble key={message.id} message={message} />)

@@ -10,3 +10,19 @@ export async function uploadPdf(file: File): Promise<PdfDocument> {
 export async function getPdf(id: string): Promise<PdfDocument> {
   return apiFetch<PdfDocument>(`/pdfs/${id}`);
 }
+
+export async function listPdfs(): Promise<PdfDocument[]> {
+  return apiFetch<PdfDocument[]>('/pdfs');
+}
+
+export async function renamePdf(id: string, filename: string): Promise<PdfDocument> {
+  return apiFetch<PdfDocument>(`/pdfs/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename }),
+  });
+}
+
+export async function deletePdf(id: string): Promise<void> {
+  await apiFetch<void>(`/pdfs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
