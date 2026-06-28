@@ -155,41 +155,67 @@ def test_agent_trace_swallows_mlflow_errors_when_enabled(
         handle.set_outputs({"answer": "x", "citations": []})
 
 
-def test_agent_trace_tags_http_trace_id_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: dict[str, object] = {}
+class _CapturingSpan:
+    def set_inputs(self, *a: object, **k: object) -> None: ...
+    def set_outputs(self, *a: object, **k: object) -> None: ...
 
-    class FakeSpan:
-        def set_inputs(self, *a: object, **k: object) -> None: ...
-        def set_outputs(self, *a: object, **k: object) -> None: ...
 
-    class FakeCM:
-        def __enter__(self) -> FakeSpan:
-            return FakeSpan()
+class _CapturingCM:
+    def __enter__(self) -> _CapturingSpan:
+        return _CapturingSpan()
 
-        def __exit__(self, *a: object) -> bool:
-            return False
+    def __exit__(self, *a: object) -> bool:
+        return False
 
+
+def _make_capturing_mlflow(calls: list[dict[str, object]]) -> type:
     class FakeMlflowLink:
         class tracing:
             @staticmethod
             def disable() -> None: ...
 
         @staticmethod
-        def start_span(*a: object, **k: object) -> FakeCM:
-            return FakeCM()
+        def start_span(*a: object, **k: object) -> _CapturingCM:
+            return _CapturingCM()
 
         @staticmethod
         def update_current_trace(**k: object) -> None:
-            captured.update(k.get("tags", {}))
+            calls.append(k)
 
-    monkeypatch.setattr(tracing_mod, "mlflow", FakeMlflowLink)
+    return FakeMlflowLink
+
+
+def test_agent_trace_groups_turns_by_session_and_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Conversation grouping in MLflow is driven by the dedicated session_id/user
+    # params (reserved metadata keys), NOT by tags. session_id == pdf_id because a
+    # chat thread maps 1:1 to a PDF (thread_id == pdf_id).
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(tracing_mod, "mlflow", _make_capturing_mlflow(calls))
+    monkeypatch.setattr(tracing_mod, "_enabled", True)
+    monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: None)
+
+    with tracing_mod.agent_trace(user_id="user-1", pdf_id="pdf-9", app_env="dev", message="hi"):
+        pass
+
+    assert len(calls) == 1
+    call = calls[0]
+    assert call.get("session_id") == "pdf-9"
+    assert call.get("user") == "user-1"
+    tags = call.get("tags", {})
+    assert tags == {"pdf_id": "pdf-9", "app_env": "dev"}
+
+
+def test_agent_trace_tags_http_trace_id_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(tracing_mod, "mlflow", _make_capturing_mlflow(calls))
     monkeypatch.setattr(tracing_mod, "_enabled", True)
     monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: "abc123")
 
     with tracing_mod.agent_trace(user_id="u", pdf_id="p", app_env="dev", message="hi"):
         pass
 
-    assert captured.get("http.trace_id") == "abc123"
+    assert len(calls) == 1
+    assert calls[0].get("tags", {}).get("http.trace_id") == "abc123"
 
 
 async def test_trace_node_runs_fn_directly_when_disabled() -> None:

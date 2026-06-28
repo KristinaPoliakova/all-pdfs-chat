@@ -76,9 +76,13 @@ class _AgentTraceHandle:
             logger.debug("MLflow set_outputs failed", exc_info=True)
 
 
-def _safe_update_trace(tags: dict[str, Any]) -> None:
+def _safe_update_trace(*, session_id: str, user: str, tags: dict[str, Any]) -> None:
     try:
-        mlflow.update_current_trace(tags=tags)
+        # session_id/user are written to MLflow's reserved metadata keys
+        # (mlflow.trace.session / mlflow.trace.user) so the UI groups the turns of
+        # one conversation into a session and lets you filter by user. Plain tags
+        # do NOT drive that grouping.
+        mlflow.update_current_trace(session_id=session_id, user=user, tags=tags)
     except Exception:
         logger.debug("MLflow update_current_trace failed", exc_info=True)
 
@@ -104,18 +108,16 @@ def agent_trace(
             span.set_inputs({"message": message})
         except Exception:
             logger.debug("MLflow set_inputs failed", exc_info=True)
-        # session_id aliases pdf_id: a chat thread maps 1:1 to a PDF (thread_id == pdf_id),
-        # and answer() has no separate session concept in v1.
         tags: dict[str, Any] = {
-            "user_id": user_id,
             "pdf_id": pdf_id,
-            "session_id": pdf_id,
             "app_env": app_env,
         }
         http_trace_id = http_tracing.current_http_trace_id()
         if http_trace_id is not None:
             tags["http.trace_id"] = http_trace_id
-        _safe_update_trace(tags)
+        # session_id == pdf_id: a chat thread maps 1:1 to a PDF (thread_id == pdf_id),
+        # so grouping traces by pdf_id reconstructs the conversation flow.
+        _safe_update_trace(session_id=pdf_id, user=user_id, tags=tags)
         try:
             yield _AgentTraceHandle(span)
         except Exception as exc:
