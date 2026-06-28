@@ -29,10 +29,10 @@ Everything is per-user and owner-scoped behind bearer-token auth.
 ## The agent
 
 The chat layer is a hand-built [LangGraph](https://langchain-ai.github.io/langgraph/)
-`StateGraph` that runs an **iterative model ↔ tools loop** over a single PDF's parsed text. It
-runs on a **local [Ollama](https://ollama.com/) model** (free at inference, must support tool
-calling) behind a swappable factory, and persists multi-turn memory in Postgres
-(`thread_id = pdf_id`).
+`StateGraph` that runs an **iterative model ↔ tools loop** over a single PDF's parsed text. The
+chat model lives behind a swappable factory (`LLM_PROVIDER`): a **local [Ollama](https://ollama.com/)
+model** for dev, or hosted **[Groq](https://groq.com/)** (fast, free tier) for small prod VMs —
+both must support tool calling. Multi-turn memory is persisted in Postgres (`thread_id = pdf_id`).
 
 The model decides which tool to call, with what query, and when it has enough evidence to answer
 or to say the document doesn't contain it. A step guard bounds the loop so it always terminates.
@@ -80,10 +80,18 @@ config) and **[`frontend/README.md`](frontend/README.md)**.
 ./scripts/dev.sh
 ```
 
-For the agent you also need an Ollama model with tool-calling support:
+For the agent you need a tool-calling chat model. Either run one locally with Ollama (default):
 
 ```bash
 ollama pull llama3.1   # served at OLLAMA_BASE_URL (default http://localhost:11434)
+```
+
+…or skip self-hosting and use Groq's free hosted tier (handy on small/low-RAM VMs):
+
+```bash
+# in backend/.env
+LLM_PROVIDER=groq
+GROQ_API_KEY=...   # free, no card: https://console.groq.com
 ```
 
 - App: http://localhost:3000 · API docs: http://127.0.0.1:8000/docs

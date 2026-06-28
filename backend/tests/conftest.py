@@ -11,6 +11,7 @@ os.environ["AZURE_STORAGE_CONNECTION_STRING"] = ""
 os.environ["AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"] = ""
 os.environ["AZURE_DOCUMENT_INTELLIGENCE_API_KEY"] = ""
 os.environ["PARSING_ENABLED"] = "false"
+os.environ["LLM_PROVIDER"] = "ollama"
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 
@@ -55,6 +56,7 @@ def _isolate_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "")
     monkeypatch.setenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY", "")
     monkeypatch.setenv("PARSING_ENABLED", "false")
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
 
 
 @pytest.fixture(autouse=True)

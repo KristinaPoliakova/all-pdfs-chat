@@ -256,7 +256,9 @@ Inside one job: `await` steps run in order (classify all pages, then parse). `as
 
 Answers cite the page numbers used, returned as `citations`.
 
-**Model (Ollama):** the model runs locally on [Ollama](https://ollama.com/) (free) and **must support tool calling** (e.g. `llama3.1`). To run it:
+**Model (`LLM_PROVIDER`):** the chat model is built by a swappable factory (`app/infrastructure/factories/chat_model.py`) and **must support tool calling**. Two providers are supported:
+
+- `ollama` (default) — runs locally on [Ollama](https://ollama.com/), free, good for dev:
 
 ```bash
 # install Ollama (see ollama.com), then:
@@ -264,12 +266,18 @@ ollama pull llama3.1
 # ensure it serves at OLLAMA_BASE_URL (default http://localhost:11434)
 ```
 
+- `groq` — hosted on [Groq](https://groq.com/), fast with a free tier (no card), avoids self-hosting on small prod VMs. Set `LLM_PROVIDER=groq` and `GROQ_API_KEY` (from https://console.groq.com). Use a model with **reliable tool calling**: `openai/gpt-oss-120b` (default) supports Groq's structured/constrained tool calls. Avoid `llama-3.3-70b-versatile` for this agent — it intermittently emits malformed tool calls that Groq rejects with `400 tool_use_failed`. In `prod`, startup fails fast if `GROQ_API_KEY` is missing.
+
 **Conversation memory:** persisted by LangGraph's `AsyncPostgresSaver` in the `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, and `checkpoint_migrations` tables. These are created at startup via the saver's `setup()` and are **excluded from Alembic autogenerate** (so Alembic never tries to drop them — see `alembic/env.py`). `thread_id = pdf_id`, so each PDF has its own conversation thread.
 
 | Variable | Default | Notes |
 |----------|---------|--------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `LLM_PROVIDER` | `ollama` | Chat-model provider: `ollama` or `groq` |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL (when `LLM_PROVIDER=ollama`) |
 | `OLLAMA_MODEL` | `llama3.1` | Must support tool calling |
+| `GROQ_API_KEY` | `` | Required when `LLM_PROVIDER=groq` (required in prod) |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | Must support reliable tool calling |
+| `GROQ_MAX_RETRIES` | `2` | Client retries on transient/429 errors |
 | `AGENT_SEARCH_TOP_K` | `4` | Pages returned by `search_pages` |
 | `AGENT_MAX_TOOL_ITERATIONS` | `5` | Max model ↔ tool loops per request |
 | `AGENT_TIMEOUT_SECONDS` | `60` | Per-request agent timeout (→ `504`) |

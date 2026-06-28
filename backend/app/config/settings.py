@@ -19,6 +19,7 @@ _MIN_UPLOAD_SIZE_BYTES = 1
 _MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024
 MAX_FILENAME_LENGTH = 255
 _STORAGE_BACKENDS = frozenset({"local", "azure"})
+_LLM_PROVIDERS = frozenset({"ollama", "groq"})
 
 
 class Settings(BaseSettings):
@@ -47,8 +48,12 @@ class Settings(BaseSettings):
     azure_document_intelligence_api_key: str = ""
     parsing_poll_interval_seconds: float = 2.0
     parsing_max_wait_seconds: int = 600
+    llm_provider: str = "groq"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
+    groq_api_key: str | None = None
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_max_retries: int = 2
     agent_search_top_k: int = 4
     agent_max_tool_iterations: int = 5
     agent_timeout_seconds: int = 60
@@ -95,6 +100,10 @@ class Settings(BaseSettings):
     def uses_azure_storage(self) -> bool:
         return self.is_prod and self.storage_backend == "azure"
 
+    @property
+    def uses_groq(self) -> bool:
+        return self.llm_provider == "groq"
+
     @field_validator("database_url")
     @classmethod
     def validate_database_url(cls, value: str) -> str:
@@ -135,6 +144,15 @@ class Settings(BaseSettings):
             raise ValueError(msg)
         return normalized
 
+    @field_validator("llm_provider")
+    @classmethod
+    def validate_llm_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in _LLM_PROVIDERS:
+            msg = f"LLM_PROVIDER must be one of: {', '.join(sorted(_LLM_PROVIDERS))}"
+            raise ValueError(msg)
+        return normalized
+
     @model_validator(mode="after")
     def validate_environment(self) -> Self:
         if not self.is_dev and not self.is_prod:
@@ -146,6 +164,8 @@ class Settings(BaseSettings):
                 missing.append("AZURE_STORAGE_CONNECTION_STRING")
             if self.parsing_enabled and not self.azure_document_intelligence_endpoint.strip():
                 missing.append("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
+            if self.uses_groq and not (self.groq_api_key or "").strip():
+                missing.append("GROQ_API_KEY")
             if missing:
                 raise ValueError(f"Required when APP_ENV=prod: {', '.join(missing)}")
 

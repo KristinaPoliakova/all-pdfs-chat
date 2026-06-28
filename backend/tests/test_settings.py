@@ -158,12 +158,52 @@ def test_agent_settings_have_defaults() -> None:
 
     settings = make_test_settings()
 
+    assert settings.llm_provider == "ollama"
     assert settings.ollama_base_url == "http://localhost:11434"
     assert settings.ollama_model == "llama3.1"
+    assert settings.groq_api_key is None
+    assert settings.groq_model == "openai/gpt-oss-120b"
+    assert settings.groq_max_retries == 2
+    assert settings.uses_groq is False
     assert settings.agent_search_top_k == 4
     assert settings.agent_max_tool_iterations == 5
     assert settings.agent_timeout_seconds == 60
     assert settings.agent_tool_char_limit == 6000
+
+
+def test_llm_provider_normalizes_and_validates() -> None:
+    settings = Settings(app_env="dev", llm_provider="GROQ", _env_file=None)
+
+    assert settings.llm_provider == "groq"
+    assert settings.uses_groq is True
+
+
+def test_rejects_invalid_llm_provider() -> None:
+    with pytest.raises(ValueError, match="LLM_PROVIDER"):
+        Settings(app_env="dev", llm_provider="openai", _env_file=None)
+
+
+def test_prod_groq_requires_api_key() -> None:
+    with pytest.raises(ValueError, match="GROQ_API_KEY"):
+        Settings(
+            app_env="prod",
+            database_url=_POSTGRES_URL,
+            llm_provider="groq",
+            _env_file=None,
+        )
+
+
+def test_prod_groq_accepts_api_key() -> None:
+    settings = Settings(
+        app_env="prod",
+        database_url=_POSTGRES_URL,
+        llm_provider="groq",
+        groq_api_key="gsk-test",
+        _env_file=None,
+    )
+
+    assert settings.uses_groq is True
+    assert settings.groq_api_key == "gsk-test"
 
 
 def test_tracing_settings_have_defaults() -> None:
