@@ -44,6 +44,10 @@ class DatabaseRuntime:
             )
         return self._session_factory
 
+    @property
+    def engine(self) -> AsyncEngine:
+        return self._get_engine()
+
     async def verify_connection(self) -> None:
         async with self.session_factory() as session:
             await session.execute(text("SELECT 1"))

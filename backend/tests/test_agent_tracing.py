@@ -1,21 +1,31 @@
 from __future__ import annotations
 
 import app.agent.tracing as tracing_mod
+import app.observability.http_tracing as http_tracing
 import pytest
 
 from tests.settings_helpers import make_test_settings
+
+
+class _FakeExperiment:
+    def __init__(self, experiment_id: str) -> None:
+        self.experiment_id = experiment_id
 
 
 class FakeTracingNamespace:
     def __init__(self) -> None:
         self.disabled = False
         self.enabled = False
+        self.destination: object | None = None
 
     def disable(self) -> None:
         self.disabled = True
 
     def enable(self) -> None:
         self.enabled = True
+
+    def set_destination(self, destination: object) -> None:
+        self.destination = destination
 
 
 class FakeMlflow:
@@ -30,10 +40,11 @@ class FakeMlflow:
             raise RuntimeError("boom")
         self.uri = uri
 
-    def set_experiment(self, name: str) -> None:
+    def set_experiment(self, name: str) -> _FakeExperiment:
         if self._fail_on == "set_experiment":
             raise RuntimeError("boom")
         self.experiment = name
+        return _FakeExperiment(experiment_id="exp-id")
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +79,7 @@ def test_configure_tracing_enabled_sets_uri_and_experiment(
 ) -> None:
     fake = FakeMlflow()
     monkeypatch.setattr(tracing_mod, "mlflow", fake)
+    monkeypatch.setattr(tracing_mod, "MlflowExperimentLocation", lambda exp_id: ("loc", exp_id))
 
     tracing_mod.configure_tracing(
         make_test_settings(
@@ -79,6 +91,8 @@ def test_configure_tracing_enabled_sets_uri_and_experiment(
 
     assert fake.uri == "http://localhost:5000"
     assert fake.experiment == "exp"
+    assert fake.tracing.destination == ("loc", "exp-id")
+    assert fake.tracing.enabled is True
     assert tracing_mod._enabled is True
 
 
@@ -139,6 +153,43 @@ def test_agent_trace_swallows_mlflow_errors_when_enabled(
 
     with tracing_mod.agent_trace(user_id="u", pdf_id="p", app_env="dev", message="hi") as handle:
         handle.set_outputs({"answer": "x", "citations": []})
+
+
+def test_agent_trace_tags_http_trace_id_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeSpan:
+        def set_inputs(self, *a: object, **k: object) -> None: ...
+        def set_outputs(self, *a: object, **k: object) -> None: ...
+
+    class FakeCM:
+        def __enter__(self) -> FakeSpan:
+            return FakeSpan()
+
+        def __exit__(self, *a: object) -> bool:
+            return False
+
+    class FakeMlflowLink:
+        class tracing:
+            @staticmethod
+            def disable() -> None: ...
+
+        @staticmethod
+        def start_span(*a: object, **k: object) -> FakeCM:
+            return FakeCM()
+
+        @staticmethod
+        def update_current_trace(**k: object) -> None:
+            captured.update(k.get("tags", {}))
+
+    monkeypatch.setattr(tracing_mod, "mlflow", FakeMlflowLink)
+    monkeypatch.setattr(tracing_mod, "_enabled", True)
+    monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: "abc123")
+
+    with tracing_mod.agent_trace(user_id="u", pdf_id="p", app_env="dev", message="hi"):
+        pass
+
+    assert captured.get("http.trace_id") == "abc123"
 
 
 async def test_trace_node_runs_fn_directly_when_disabled() -> None:

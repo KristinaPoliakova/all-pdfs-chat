@@ -7,8 +7,10 @@ from contextlib import contextmanager
 from typing import Any, TypeVar, cast
 
 import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
 
 from app.config.settings import Settings
+from app.observability import http_tracing
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +49,8 @@ def configure_tracing(settings: Settings) -> None:
         # default local file store, importing backends the slim client omits
         # (e.g. sqlparse) and raising on a remote-only setup.
         mlflow.set_tracking_uri(uri)
-        mlflow.set_experiment(settings.mlflow_experiment)
+        exp_id = mlflow.set_experiment(settings.mlflow_experiment).experiment_id
+        mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
         mlflow.tracing.enable()
     except Exception:
         logger.warning("MLflow tracing setup failed; tracing disabled.", exc_info=True)
@@ -103,14 +106,16 @@ def agent_trace(
             logger.debug("MLflow set_inputs failed", exc_info=True)
         # session_id aliases pdf_id: a chat thread maps 1:1 to a PDF (thread_id == pdf_id),
         # and answer() has no separate session concept in v1.
-        _safe_update_trace(
-            {
-                "user_id": user_id,
-                "pdf_id": pdf_id,
-                "session_id": pdf_id,
-                "app_env": app_env,
-            }
-        )
+        tags: dict[str, Any] = {
+            "user_id": user_id,
+            "pdf_id": pdf_id,
+            "session_id": pdf_id,
+            "app_env": app_env,
+        }
+        http_trace_id = http_tracing.current_http_trace_id()
+        if http_trace_id is not None:
+            tags["http.trace_id"] = http_trace_id
+        _safe_update_trace(tags)
         try:
             yield _AgentTraceHandle(span)
         except Exception as exc:

@@ -29,9 +29,18 @@ from app.infrastructure.factories.sessions import (
 )
 from app.infrastructure.factories.storage import reset_file_storage_state
 from app.infrastructure.factories.users import create_user_repository, reset_user_repository_state
-from app.infrastructure.persistence.sql.lifecycle import close_database, init_database
+from app.infrastructure.persistence.sql.lifecycle import (
+    close_database,
+    get_database,
+    init_database,
+)
 from app.infrastructure.persistence.sql.migrations import SchemaRevisionError
 from app.infrastructure.persistence.sql.startup_errors import format_database_startup_error
+from app.observability.http_tracing import (
+    configure_http_tracing,
+    instrument_fastapi_app,
+    instrument_sqlalchemy_engine,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +59,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     except SchemaRevisionError as exc:
         logger.error("%s", exc)
         raise
+
+    instrument_sqlalchemy_engine(get_database().engine)
 
     create_pdf_repository()
     create_job_queue()
@@ -93,6 +104,14 @@ def create_app() -> FastAPI:
     Instrumentator(
         excluded_handlers=["^/health$", "^/ready$", "^/metrics$"],
     ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+    # HTTP request tracing must be configured here, before instrumenting the app:
+    # FastAPIInstrumentor adds ASGI middleware that can only be attached at
+    # construction (not after startup), and instrument_fastapi_app no-ops unless
+    # configure_http_tracing has already flipped the enabled flag. The SQLAlchemy
+    # engine is instrumented later in lifespan, once the engine exists.
+    configure_http_tracing(settings)
+    instrument_fastapi_app(app)
 
     return app
 

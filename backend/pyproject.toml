@@ -29,6 +29,11 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.1.0",
     "psycopg-pool>=3.3.1",
     "mlflow-tracing==3.14.0",
+    "opentelemetry-sdk>=1.42,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.42,<2",
+    "opentelemetry-instrumentation-fastapi>=0.63b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.63b0",
+    "opentelemetry-instrumentation-httpx>=0.63b0",
 ]
 
 [dependency-groups]
@@ -85,4 +90,8 @@ default-groups = ["dev"]
 
 [[tool.mypy.overrides]]
 module = ["mlflow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["opentelemetry.*"]
 ignore_missing_imports = true

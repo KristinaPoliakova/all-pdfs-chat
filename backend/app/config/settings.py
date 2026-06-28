@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     tracing_enabled: bool = False
     mlflow_tracking_uri: str = ""
     mlflow_experiment: str = "all-pdfs-chat-agent"
+    request_tracing_enabled: bool = False
+    request_trace_sample_ratio: float = 1.0
+    mlflow_http_experiment: str = "all-pdfs-chat-http"
     session_ttl_seconds: int = 7 * 24 * 3600
     rate_limit_enabled: bool = True
     rate_limit_auth_register: str = "5/minute"

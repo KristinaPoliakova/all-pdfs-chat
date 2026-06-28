@@ -279,7 +279,25 @@ ensure_mlflow() {
   ensure_mlflow_database_docker
   log "Starting MLflow tracking server (docker compose; first run builds the image)…"
   (cd "$ROOT" && docker compose up -d mlflow)
+  wait_for_mlflow
   log "MLflow UI: http://localhost:${MLFLOW_PORT}  (enable tracing via TRACING_ENABLED=true + MLFLOW_TRACKING_URI=http://localhost:${MLFLOW_PORT} in backend/.env)"
+}
+
+# Wait until MLflow answers /health so the API (which configures tracing at
+# startup) doesn't race a container that accepts connections before its workers
+# are ready. Best-effort: tracing is opt-in, so warn rather than die on timeout.
+wait_for_mlflow() {
+  command -v curl >/dev/null 2>&1 || return 0
+  log "Waiting for MLflow to accept connections…"
+  local attempt
+  for attempt in $(seq 1 30); do
+    if curl -fsS -o /dev/null --max-time 2 "http://localhost:${MLFLOW_PORT}/health"; then
+      log "MLflow is ready."
+      return 0
+    fi
+    sleep 1
+  done
+  warn "MLflow did not become ready in time; request/agent tracing may be disabled this run."
 }
 
 ensure_mlflow_database_docker() {

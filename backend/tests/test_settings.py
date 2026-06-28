@@ -174,3 +174,13 @@ def test_tracing_settings_have_defaults() -> None:
     assert settings.tracing_enabled is False
     assert settings.mlflow_tracking_uri == ""
     assert settings.mlflow_experiment == "all-pdfs-chat-agent"
+
+
+def test_request_tracing_settings_have_defaults() -> None:
+    from tests.settings_helpers import make_test_settings
+
+    settings = make_test_settings()
+
+    assert settings.request_tracing_enabled is False
+    assert settings.request_trace_sample_ratio == 1.0
+    assert settings.mlflow_http_experiment == "all-pdfs-chat-http"
