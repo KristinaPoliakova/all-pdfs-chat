@@ -401,7 +401,11 @@ run_dev() {
   free_dev_ports
 
   log "Starting API (http://127.0.0.1:${API_PORT})…"
-  start_service api 32 "$BACKEND" uv run uvicorn app.main:app --reload --host 127.0.0.1 --port "$API_PORT"
+  # Watch only the app source for reloads. Without --reload-dir, uvicorn watches the
+  # whole CWD (backend/, which includes .venv) and reload-loops whenever dependencies
+  # change on disk (e.g. `uv sync` rewriting site-packages).
+  start_service api 32 "$BACKEND" uv run uvicorn app.main:app \
+    --reload --reload-dir app --host 127.0.0.1 --port "$API_PORT"
 
   log "Starting worker…"
   start_service worker 33 "$BACKEND" uv run python -m app.worker
