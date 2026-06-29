@@ -16,15 +16,24 @@ os.environ["LLM_PROVIDER"] = "ollama"
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 import pytest
-from app.api.deps import get_file_storage, get_job_queue, get_pdf_repository
+from app.api.deps import (
+    get_conversation_memory,
+    get_conversation_repository,
+    get_file_storage,
+    get_job_queue,
+    get_pdf_repository,
+)
 from app.application.auth.deps import get_session_repository, get_user_repository
+from app.application.ports.conversation_memory import ChatMessage
 from app.classification.service import PdfClassificationService
 from app.config.settings import Settings, get_settings
+from app.infrastructure.factories.conversation import reset_conversation_repository_state
 from app.infrastructure.factories.jobs import reset_job_queue_state
 from app.infrastructure.factories.pdf import reset_pdf_repository_state
 from app.infrastructure.factories.sessions import reset_session_repository_state
 from app.infrastructure.factories.storage import reset_file_storage_state
 from app.infrastructure.factories.users import reset_user_repository_state
+from app.infrastructure.persistence.memory.conversation import InMemoryConversationRepository
 from app.infrastructure.persistence.memory.jobs import InMemoryJobQueue
 from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
 from app.infrastructure.persistence.memory.sessions import InMemorySessionRepository
@@ -38,6 +47,20 @@ from httpx import ASGITransport, AsyncClient
 
 from tests.auth_helpers import register_and_get_auth_headers
 from tests.settings_helpers import TEST_DATABASE_URL, make_test_settings
+
+
+class FakeConversationMemory:
+    """Stand-in for the LangGraph-backed memory in API tests."""
+
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+        self.messages_by_thread: dict[str, list[ChatMessage]] = {}
+
+    async def get_messages(self, thread_id: str) -> list[ChatMessage]:
+        return list(self.messages_by_thread.get(thread_id, []))
+
+    async def delete_thread(self, thread_id: str) -> None:
+        self.deleted.append(thread_id)
 
 
 @pytest.fixture(autouse=True)
@@ -66,6 +89,7 @@ async def _reset_pdf_repository_factory() -> None:
     await reset_job_queue_state()
     await reset_user_repository_state()
     await reset_session_repository_state()
+    await reset_conversation_repository_state()
     reset_file_storage_state()
     yield
     await reset_database_state()
@@ -73,6 +97,7 @@ async def _reset_pdf_repository_factory() -> None:
     await reset_job_queue_state()
     await reset_user_repository_state()
     await reset_session_repository_state()
+    await reset_conversation_repository_state()
     reset_file_storage_state()
 
 
@@ -104,6 +129,16 @@ def session_repository() -> InMemorySessionRepository:
 
 
 @pytest.fixture
+def conversation_repository() -> InMemoryConversationRepository:
+    return InMemoryConversationRepository()
+
+
+@pytest.fixture
+def conversation_memory() -> FakeConversationMemory:
+    return FakeConversationMemory()
+
+
+@pytest.fixture
 async def auth_headers(api_client: AsyncClient) -> dict[str, str]:
     return await register_and_get_auth_headers(api_client)
 
@@ -115,6 +150,8 @@ async def api_client(
     job_queue: InMemoryJobQueue,
     user_repository: InMemoryUserRepository,
     session_repository: InMemorySessionRepository,
+    conversation_repository: InMemoryConversationRepository,
+    conversation_memory: FakeConversationMemory,
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[AsyncClient]:
     get_settings.cache_clear()
@@ -150,6 +187,8 @@ async def api_client(
     app.dependency_overrides[get_job_queue] = lambda: job_queue
     app.dependency_overrides[get_user_repository] = lambda: user_repository
     app.dependency_overrides[get_session_repository] = lambda: session_repository
+    app.dependency_overrides[get_conversation_repository] = lambda: conversation_repository
+    app.dependency_overrides[get_conversation_memory] = lambda: conversation_memory
 
     async with app.router.lifespan_context(app):
         transport = ASGITransport(app=app)

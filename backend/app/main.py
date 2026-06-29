@@ -21,6 +21,10 @@ from app.infrastructure.factories.chat_checkpointer import (
     close_chat_checkpointer,
     init_chat_checkpointer,
 )
+from app.infrastructure.factories.conversation import (
+    create_conversation_repository,
+    reset_conversation_repository_state,
+)
 from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
 from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
 from app.infrastructure.factories.sessions import (
@@ -66,6 +70,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     create_job_queue()
     create_user_repository()
     create_session_repository()
+    create_conversation_repository()
 
     await init_chat_checkpointer(settings)
 
@@ -77,6 +82,7 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     await reset_user_repository_state()
     await reset_job_queue_state()
     await reset_pdf_repository_state()
+    await reset_conversation_repository_state()
     reset_file_storage_state()
     await close_chat_checkpointer()
     await close_database()

@@ -46,7 +46,10 @@ async def test_postgres_checkpointer_persists_conversation() -> None:
         graph = build_agent_graph(
             model=model, tools=[], checkpointer=checkpointer, max_tool_iterations=2
         )
-        config = {"configurable": {"thread_id": str(uuid.uuid4()), "pdf_id": "p"}}
+        # thread_id is the conversation_id (the conversation boundary); pdf_id is
+        # carried alongside for the tools, not as the checkpoint key.
+        conversation_id = str(uuid.uuid4())
+        config = {"configurable": {"thread_id": conversation_id, "pdf_id": "p"}}
 
         await graph.ainvoke(
             {"messages": [HumanMessage(content="hi")], "steps": 0, "cited_pages": []}, config

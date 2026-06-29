@@ -106,9 +106,18 @@ uv run python -m app.worker             # terminal 2 — background processing
 | `POST` | `/api/v1/auth/logout` | Revoke session (Bearer token). **204** |
 | `GET` | `/api/v1/auth/me` | Current user (Bearer token). **200** |
 | `POST` | `/api/v1/pdfs` | Upload PDF (multipart field `file`, **Bearer token required**). **201** + `Location: /api/v1/pdfs/{id}` |
+| `GET` | `/api/v1/pdfs` | List the caller's PDFs (**Bearer token**, owner only) |
 | `GET` | `/api/v1/pdfs/{id}` | Document record + **`processing_status`** (**Bearer token**, owner only) |
+| `PATCH` | `/api/v1/pdfs/{id}` | Rename a PDF (**Bearer token**, owner only) |
+| `DELETE` | `/api/v1/pdfs/{id}` | Delete a PDF and its conversations (**Bearer token**, owner only). **204** |
 | `GET` | `/api/v1/pdfs/{id}/pages` | Per-page classification (**Bearer token**, owner only) |
-| `POST` | `/api/v1/pdfs/{id}/chat` | Ask a question about a parsed PDF (Bearer token, owner only). **200** + `{answer, citations}`; **409** until parsed |
+| `POST` | `/api/v1/pdfs/{id}/conversations` | Start a conversation on a parsed PDF (**Bearer token**, owner only). **201**; **409** until parsed |
+| `GET` | `/api/v1/pdfs/{id}/conversations` | List conversations for a PDF (**Bearer token**, owner only) |
+| `GET` | `/api/v1/conversations/{id}` | Conversation metadata (**Bearer token**, owner only). **404** if not owned |
+| `PATCH` | `/api/v1/conversations/{id}` | Rename a conversation (**Bearer token**, owner only) |
+| `DELETE` | `/api/v1/conversations/{id}` | Delete a conversation and its memory (**Bearer token**, owner only). **204** |
+| `GET` | `/api/v1/conversations/{id}/messages` | Conversation message history (**Bearer token**, owner only) |
+| `POST` | `/api/v1/conversations/{id}/chat` | Ask a question in a conversation (**Bearer token**, owner only). **200** + `{answer, citations}`; **409** until parsed |
 
 **Upload response:** `PdfDocumentResponse`
 
@@ -122,7 +131,7 @@ There is **no** server-side “wait until ready” or push (WebSocket/SSE). Prog
 4. When classified (or later): `GET /api/v1/pdfs/{id}/pages` for page classes.
 5. When `parsed`: text extracts are in the database (no GET endpoint yet); safe to enable chat/RAG.
 
-Once `processing_status == parsed`, the client can `POST /api/v1/pdfs/{id}/chat` with `{"message": "..."}` and receives `{"answer", "citations": [page numbers]}`. See [Agent (chat)](#agent-chat).
+Once `processing_status == parsed`, the client creates a conversation with `POST /api/v1/pdfs/{id}/conversations`, then chats via `POST /api/v1/conversations/{id}/chat` with `{"message": "..."}` and receives `{"answer", "citations": [page numbers]}`. See [Agent (chat)](#agent-chat).
 
 Typical terminal statuses: `classified`, `parsed`, `classification_failed`, `parsing_failed`.
 
@@ -238,12 +247,12 @@ Inside one job: `await` steps run in order (classify all pages, then parse). `as
 
 ## Agent (chat)
 
-`POST /api/v1/pdfs/{id}/chat` (Bearer token, owner only) answers questions about a parsed PDF. Body `{"message": "..."}`; returns `{"answer": "...", "citations": [page numbers]}`.
+`POST /api/v1/conversations/{id}/chat` (Bearer token, owner only) answers questions within a conversation bound to a parsed PDF. Body `{"message": "..."}`; returns `{"answer": "...", "citations": [page numbers]}`. Create the conversation first with `POST /api/v1/pdfs/{id}/conversations`.
 
 | Status | Meaning |
 |--------|---------|
 | `200` | Answer produced + page-number citations |
-| `404` | PDF not found, or not owned by the caller |
+| `404` | Conversation not found, or not owned by the caller |
 | `409` | PDF not yet `parsed` (no text to ground answers in) |
 | `422` | Empty or oversized `message` |
 | `502` | Model/runtime unavailable (e.g. Ollama not reachable) |
@@ -268,7 +277,7 @@ ollama pull llama3.1
 
 - `groq` — hosted on [Groq](https://groq.com/), fast with a free tier (no card), avoids self-hosting on small prod VMs. Set `LLM_PROVIDER=groq` and `GROQ_API_KEY` (from https://console.groq.com). Use a model with **reliable tool calling**: `openai/gpt-oss-120b` (default) supports Groq's structured/constrained tool calls. Avoid `llama-3.3-70b-versatile` for this agent — it intermittently emits malformed tool calls that Groq rejects with `400 tool_use_failed`. In `prod`, startup fails fast if `GROQ_API_KEY` is missing.
 
-**Conversation memory:** persisted by LangGraph's `AsyncPostgresSaver` in the `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, and `checkpoint_migrations` tables. These are created at startup via the saver's `setup()` and are **excluded from Alembic autogenerate** (so Alembic never tries to drop them — see `alembic/env.py`). `thread_id = pdf_id`, so each PDF has its own conversation thread.
+**Conversation memory:** persisted by LangGraph's `AsyncPostgresSaver` in the `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, and `checkpoint_migrations` tables. These are created at startup via the saver's `setup()` and are **excluded from Alembic autogenerate** (so Alembic never tries to drop them — see `alembic/env.py`). `thread_id = conversation_id`, so each conversation has its own thread (a PDF can have many conversations).
 
 | Variable | Default | Notes |
 |----------|---------|--------|

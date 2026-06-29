@@ -7,6 +7,9 @@ import pytest
 from app.classification.types import PageClass, PageClassificationResult
 from app.infrastructure.persistence.sql.base import Base
 from app.infrastructure.persistence.sql.migrations import ensure_migrated
+from app.infrastructure.persistence.sql.repositories.conversation import (
+    SqlConversationRepository,
+)
 from app.infrastructure.persistence.sql.repositories.jobs import SqlJobQueue
 from app.infrastructure.persistence.sql.repositories.pdf import SqlPdfRepository
 from app.infrastructure.persistence.sql.repositories.sessions import SqlSessionRepository
@@ -58,6 +61,10 @@ def make_sql_user_repository(runtime: DatabaseRuntime) -> SqlUserRepository:
 
 def make_sql_session_repository(runtime: DatabaseRuntime) -> SqlSessionRepository:
     return SqlSessionRepository(runtime.session_factory)
+
+
+def make_sql_conversation_repository(runtime: DatabaseRuntime) -> SqlConversationRepository:
+    return SqlConversationRepository(runtime.session_factory)
 
 
 async def seed_sql_pdf_document(

@@ -132,7 +132,9 @@ def test_configure_tracing_swallows_setup_error(monkeypatch: pytest.MonkeyPatch)
 def test_agent_trace_is_noop_when_disabled() -> None:
     tracing_mod._enabled = False
 
-    with tracing_mod.agent_trace(user_id="u", pdf_id="p", app_env="dev", message="hi") as handle:
+    with tracing_mod.agent_trace(
+        user_id="u", conversation_id="c", pdf_id="p", app_env="dev", message="hi"
+    ) as handle:
         handle.set_outputs({"answer": "x", "citations": []})
 
 
@@ -151,7 +153,9 @@ def test_agent_trace_swallows_mlflow_errors_when_enabled(
     monkeypatch.setattr(tracing_mod, "mlflow", Boom())
     tracing_mod._enabled = True
 
-    with tracing_mod.agent_trace(user_id="u", pdf_id="p", app_env="dev", message="hi") as handle:
+    with tracing_mod.agent_trace(
+        user_id="u", conversation_id="c", pdf_id="p", app_env="dev", message="hi"
+    ) as handle:
         handle.set_outputs({"answer": "x", "citations": []})
 
 
@@ -186,23 +190,22 @@ def _make_capturing_mlflow(calls: list[dict[str, object]]) -> type:
 
 
 def test_agent_trace_groups_turns_by_session_and_user(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Conversation grouping in MLflow is driven by the dedicated session_id/user
-    # params (reserved metadata keys), NOT by tags. session_id == pdf_id because a
-    # chat thread maps 1:1 to a PDF (thread_id == pdf_id).
+    # session_id == conversation_id (the real conversation boundary); pdf_id is a tag.
     calls: list[dict[str, object]] = []
     monkeypatch.setattr(tracing_mod, "mlflow", _make_capturing_mlflow(calls))
     monkeypatch.setattr(tracing_mod, "_enabled", True)
     monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: None)
 
-    with tracing_mod.agent_trace(user_id="user-1", pdf_id="pdf-9", app_env="dev", message="hi"):
+    with tracing_mod.agent_trace(
+        user_id="user-1", conversation_id="conv-7", pdf_id="pdf-9", app_env="dev", message="hi"
+    ):
         pass
 
     assert len(calls) == 1
     call = calls[0]
-    assert call.get("session_id") == "pdf-9"
+    assert call.get("session_id") == "conv-7"
     assert call.get("user") == "user-1"
-    tags = call.get("tags", {})
-    assert tags == {"pdf_id": "pdf-9", "app_env": "dev"}
+    assert call.get("tags", {}) == {"pdf_id": "pdf-9", "app_env": "dev"}
 
 
 def test_agent_trace_tags_http_trace_id_when_present(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -211,7 +214,9 @@ def test_agent_trace_tags_http_trace_id_when_present(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(tracing_mod, "_enabled", True)
     monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: "abc123")
 
-    with tracing_mod.agent_trace(user_id="u", pdf_id="p", app_env="dev", message="hi"):
+    with tracing_mod.agent_trace(
+        user_id="u", conversation_id="c", pdf_id="p", app_env="dev", message="hi"
+    ):
         pass
 
     assert len(calls) == 1
@@ -227,13 +232,15 @@ def test_agent_trace_records_error_and_reraises(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(http_tracing, "current_http_trace_id", lambda: None)
 
     with pytest.raises(ValueError, match="boom"):
-        with tracing_mod.agent_trace(user_id="user-1", pdf_id="pdf-9", app_env="dev", message="hi"):
+        with tracing_mod.agent_trace(
+            user_id="user-1", conversation_id="conv-7", pdf_id="pdf-9", app_env="dev", message="hi"
+        ):
             raise ValueError("boom")
 
     error_calls = [c for c in calls if "error_type" in c.get("tags", {})]
     assert len(error_calls) == 1
     call = error_calls[0]
-    assert call.get("session_id") == "pdf-9"
+    assert call.get("session_id") == "conv-7"
     assert call.get("user") == "user-1"
     tags = call.get("tags", {})
     assert tags.get("error_type") == "ValueError"

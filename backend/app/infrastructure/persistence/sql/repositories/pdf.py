@@ -156,6 +156,39 @@ class SqlPdfRepository:
             rows = result.scalars().all()
         return [_to_page_extract(row) for row in rows]
 
+    async def list_for_user(self, user_id: str) -> list[PdfRecord]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(PdfDocument)
+                .where(PdfDocument.user_id == user_id)
+                .order_by(PdfDocument.created_at.desc())
+            )
+            rows = result.scalars().all()
+        return [_to_record(row) for row in rows]
+
+    async def rename(self, pdf_id: str, *, filename: str) -> PdfRecord:
+        async with self._session_factory() as session:
+            document = await session.get(PdfDocument, pdf_id)
+            if document is None:
+                raise LookupError(f"PDF document not found: {pdf_id}")
+            document.filename = filename
+            try:
+                await session.commit()
+                await session.refresh(document)
+            except Exception:
+                await session.rollback()
+                raise
+        return _to_record(document)
+
+    async def delete(self, pdf_id: str) -> None:
+        async with self._session_factory() as session:
+            try:
+                await session.execute(delete(PdfDocument).where(PdfDocument.id == pdf_id))
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
 
 def _to_record(document: PdfDocument) -> PdfRecord:
     return PdfRecord(

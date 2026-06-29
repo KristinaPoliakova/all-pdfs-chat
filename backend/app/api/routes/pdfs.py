@@ -2,20 +2,25 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 
-from app.agent.exceptions import AgentTimeoutError, AgentUnavailableError
-from app.api.deps import get_chat_service, get_pdf_repository, get_pdf_upload_service
+from app.api.deps import (
+    get_conversation_service,
+    get_pdf_management_service,
+    get_pdf_repository,
+    get_pdf_upload_service,
+)
 from app.application.auth.deps import get_current_user
-from app.application.ports.chat import ChatService
 from app.application.ports.pdf import PdfRepository
 from app.application.ports.users import UserRecord
+from app.application.services.conversation import ConversationService, PdfNotReadyError
+from app.application.services.pdf_management import PdfManagementService
 from app.application.services.pdf_upload import PdfUploadService
-from app.classification.types import PdfProcessingStatus
 from app.config import settings as app_settings
 from app.core.rate_limit import get_user_id_or_ip, limiter
-from app.schemas.chat import ChatRequest, ChatResponse
+from app.schemas.conversation import ConversationResponse, conversation_response_from_record
 from app.schemas.pdf import (
     PdfDocumentResponse,
     PdfPagesResponse,
+    RenamePdfRequest,
     document_response_from_record,
     page_summaries_from_results,
 )
@@ -52,6 +57,17 @@ async def upload_pdf(
     return document_response_from_record(result.record)
 
 
+@router.get("", response_model=list[PdfDocumentResponse], response_model_exclude_none=True)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
+async def list_pdfs(
+    request: Request,
+    current_user: UserRecord = Depends(get_current_user),
+    service: PdfManagementService = Depends(get_pdf_management_service),
+) -> list[PdfDocumentResponse]:
+    records = await service.list(user_id=current_user.id)
+    return [document_response_from_record(record) for record in records]
+
+
 @router.get("/{pdf_id}", response_model=PdfDocumentResponse, response_model_exclude_none=True)
 @limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
 async def get_pdf(
@@ -68,6 +84,43 @@ async def get_pdf(
             detail="PDF document not found",
         ) from None
     return document_response_from_record(record)
+
+
+@router.patch("/{pdf_id}", response_model=PdfDocumentResponse, response_model_exclude_none=True)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
+async def rename_pdf(
+    request: Request,
+    pdf_id: str,
+    body: RenamePdfRequest,
+    current_user: UserRecord = Depends(get_current_user),
+    service: PdfManagementService = Depends(get_pdf_management_service),
+) -> PdfDocumentResponse:
+    try:
+        record = await service.rename(
+            pdf_id=pdf_id, user_id=current_user.id, filename=body.filename
+        )
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PDF document not found"
+        ) from None
+    return document_response_from_record(record)
+
+
+@router.delete("/{pdf_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
+async def delete_pdf(
+    request: Request,
+    pdf_id: str,
+    current_user: UserRecord = Depends(get_current_user),
+    service: PdfManagementService = Depends(get_pdf_management_service),
+) -> Response:
+    try:
+        await service.delete(pdf_id=pdf_id, user_id=current_user.id)
+    except LookupError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PDF document not found"
+        ) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get(
@@ -93,45 +146,43 @@ async def get_pdf_pages(
     return PdfPagesResponse(pages=page_summaries_from_results(pages))
 
 
-@router.post("/{pdf_id}/chat", response_model=ChatResponse)
+@router.post(
+    "/{pdf_id}/conversations",
+    response_model=ConversationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 @limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
-async def chat_with_pdf(
+async def create_conversation(
     request: Request,
     pdf_id: str,
-    body: ChatRequest,
     current_user: UserRecord = Depends(get_current_user),
-    pdf_repository: PdfRepository = Depends(get_pdf_repository),
-    chat_service: ChatService = Depends(get_chat_service),
-) -> ChatResponse:
+    service: ConversationService = Depends(get_conversation_service),
+) -> ConversationResponse:
     try:
-        record = await pdf_repository.get_for_user(pdf_id, current_user.id)
+        record = await service.create(pdf_id=pdf_id, user_id=current_user.id)
     except LookupError:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="PDF document not found",
+            status_code=status.HTTP_404_NOT_FOUND, detail="PDF document not found"
         ) from None
-
-    if record.processing_status != PdfProcessingStatus.PARSED:
+    except PdfNotReadyError:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="PDF is not ready for chat yet",
-        )
+            status_code=status.HTTP_409_CONFLICT, detail="PDF is not ready for chat yet"
+        ) from None
+    return conversation_response_from_record(record)
 
+
+@router.get("/{pdf_id}/conversations", response_model=list[ConversationResponse])
+@limiter.limit(lambda: app_settings.get_settings().rate_limit_pdf_read, key_func=get_user_id_or_ip)
+async def list_conversations(
+    request: Request,
+    pdf_id: str,
+    current_user: UserRecord = Depends(get_current_user),
+    service: ConversationService = Depends(get_conversation_service),
+) -> list[ConversationResponse]:
     try:
-        result = await chat_service.answer(
-            pdf_id=pdf_id,
-            user_id=current_user.id,
-            message=body.message,
-        )
-    except AgentTimeoutError:
+        records = await service.list_for_pdf(pdf_id=pdf_id, user_id=current_user.id)
+    except LookupError:
         raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="The assistant took too long to respond. Please try again.",
+            status_code=status.HTTP_404_NOT_FOUND, detail="PDF document not found"
         ) from None
-    except AgentUnavailableError:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The assistant is temporarily unavailable. Please try again.",
-        ) from None
-
-    return ChatResponse(answer=result.answer, citations=result.citations)
+    return [conversation_response_from_record(record) for record in records]

@@ -20,6 +20,7 @@ from app.config.settings import Settings
 logger = logging.getLogger(__name__)
 
 _EMPTY_DOCUMENT_ANSWER = "No readable text was found in this document."
+_NO_ANSWER_FALLBACK = "I could not find an answer to that in this document."
 
 
 class LangGraphChatService:
@@ -48,17 +49,25 @@ class LangGraphChatService:
             max_tool_iterations=settings.agent_max_tool_iterations,
         )
 
-    async def answer(self, *, pdf_id: str, user_id: str, message: str) -> ChatAnswer:
+    async def answer(
+        self, *, conversation_id: str, pdf_id: str, user_id: str, message: str
+    ) -> ChatAnswer:
         with agent_trace(
-            user_id=user_id, pdf_id=pdf_id, app_env=self._app_env, message=message
+            user_id=user_id,
+            conversation_id=conversation_id,
+            pdf_id=pdf_id,
+            app_env=self._app_env,
+            message=message,
         ) as trace:
             extracts = await self._repository.get_page_extracts(pdf_id)
             if not extracts:
-                answer = ChatAnswer(answer=_EMPTY_DOCUMENT_ANSWER, citations=[])
+                answer = ChatAnswer(answer=_EMPTY_DOCUMENT_ANSWER, citations=[], recorded=False)
                 trace.set_outputs({"answer": answer.answer, "citations": answer.citations})
                 return answer
 
-            config: RunnableConfig = {"configurable": {"thread_id": pdf_id, "pdf_id": pdf_id}}
+            config: RunnableConfig = {
+                "configurable": {"thread_id": conversation_id, "pdf_id": pdf_id}
+            }
             inputs: dict[str, Any] = {
                 "messages": [HumanMessage(content=message)],
                 "steps": 0,
@@ -72,10 +81,14 @@ class LangGraphChatService:
             except TimeoutError as exc:
                 raise AgentTimeoutError("The assistant took too long to respond.") from exc
             except Exception as exc:
-                logger.exception("Agent run failed for pdf_id=%s", pdf_id)
+                logger.exception("Agent run failed for conversation_id=%s", conversation_id)
                 raise AgentUnavailableError("The assistant is temporarily unavailable.") from exc
 
-            answer_text = _message_text(result["messages"][-1].content)
+            answer_text = _message_text(result["messages"][-1].content).strip()
+            if not answer_text:
+                # Last-resort guard so a blank message never reaches the UI even if
+                # the model returns empty text despite the force-answer step.
+                answer_text = _NO_ANSWER_FALLBACK
             citations = sorted(set(result.get("cited_pages", [])))
             answer = ChatAnswer(answer=answer_text, citations=citations)
             trace.set_outputs({"answer": answer.answer, "citations": answer.citations})

@@ -98,6 +98,23 @@ class InMemoryPdfRepository:
     async def get_page_extracts(self, pdf_id: str) -> list[PageExtract]:
         return list(self._extracts.get(pdf_id, []))
 
+    async def list_for_user(self, user_id: str) -> list[PdfRecord]:
+        matches = [r for r in self._records.values() if r.user_id == user_id]
+        return sorted(matches, key=lambda r: r.created_at, reverse=True)
+
+    async def rename(self, pdf_id: str, *, filename: str) -> PdfRecord:
+        record = self._records.get(pdf_id)
+        if record is None:
+            raise LookupError(f"PDF document not found: {pdf_id}")
+        updated = replace(record, filename=filename)
+        self._records[pdf_id] = updated
+        return updated
+
+    async def delete(self, pdf_id: str) -> None:
+        self._records.pop(pdf_id, None)
+        self._pages.pop(pdf_id, None)
+        self._extracts.pop(pdf_id, None)
+
 
 def _with_status(
     record: PdfRecord,

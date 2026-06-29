@@ -69,6 +69,7 @@ async def test_upgrade_head_on_empty_database() -> None:
             )
         assert sorted(tables) == sorted(
             [
+                "conversations",
                 "pdf_documents",
                 "pdf_jobs",
                 "pdf_page_extracts",

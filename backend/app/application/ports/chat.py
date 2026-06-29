@@ -8,7 +8,10 @@ from typing import Protocol
 class ChatAnswer:
     answer: str
     citations: list[int]
+    recorded: bool = True
 
 
 class ChatService(Protocol):
-    async def answer(self, *, pdf_id: str, user_id: str, message: str) -> ChatAnswer: ...
+    async def answer(
+        self, *, conversation_id: str, pdf_id: str, user_id: str, message: str
+    ) -> ChatAnswer: ...

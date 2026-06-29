@@ -89,7 +89,7 @@ def _safe_update_trace(*, session_id: str, user: str, tags: dict[str, Any]) -> N
 
 @contextmanager
 def agent_trace(
-    *, user_id: str, pdf_id: str, app_env: str, message: str
+    *, user_id: str, conversation_id: str, pdf_id: str, app_env: str, message: str
 ) -> Iterator[_AgentTraceHandle]:
     """Root span for one agent run. No-ops when disabled; never raises from tracing."""
     if not _enabled:
@@ -115,14 +115,15 @@ def agent_trace(
         http_trace_id = http_tracing.current_http_trace_id()
         if http_trace_id is not None:
             tags["http.trace_id"] = http_trace_id
-        # session_id == pdf_id: a chat thread maps 1:1 to a PDF (thread_id == pdf_id),
-        # so grouping traces by pdf_id reconstructs the conversation flow.
-        _safe_update_trace(session_id=pdf_id, user=user_id, tags=tags)
+        # session_id == conversation_id: one MLflow session per conversation thread
+        # (thread_id == conversation_id), so grouping traces by conversation_id
+        # reconstructs the conversation flow. pdf_id is carried as a tag.
+        _safe_update_trace(session_id=conversation_id, user=user_id, tags=tags)
         try:
             yield _AgentTraceHandle(span)
         except Exception as exc:
             _safe_update_trace(
-                session_id=pdf_id,
+                session_id=conversation_id,
                 user=user_id,
                 tags={**tags, "error_type": type(exc).__name__},
             )

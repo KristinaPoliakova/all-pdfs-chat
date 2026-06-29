@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from app.application.ports.pdf import PdfRecord
 from app.classification.types import PageClass, PageClassificationResult, PdfProcessingStatus
@@ -60,3 +62,7 @@ def page_summaries_from_results(
         )
         for page in pages
     ]
+
+
+class RenamePdfRequest(BaseModel):
+    filename: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=512)]
