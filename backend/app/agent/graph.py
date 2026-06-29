@@ -15,7 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from typing_extensions import TypedDict
 
-from app.agent.prompts import SYSTEM_PROMPT
+from app.agent.prompts import FORCE_ANSWER_INSTRUCTION, SYSTEM_PROMPT
 from app.agent.tracing import trace_node
 
 _PAGE_MARKER = re.compile(r"\[page (\d+)\]")
@@ -39,8 +39,17 @@ def build_agent_graph(
 
     @trace_node("agent_node", "LLM")
     async def agent_node(state: AgentState) -> dict[str, Any]:
-        messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
-        response = await model_with_tools.ainvoke(messages)
+        # Once the tool budget is spent, call the model WITHOUT tools so it can only
+        # reply with text. This guarantees a final answer instead of looping into
+        # another (unexecuted) tool call that would surface to the user as a blank
+        # response.
+        tools_exhausted = state["steps"] >= max_tool_iterations
+        prompt: list[AnyMessage] = [SystemMessage(content=SYSTEM_PROMPT)]
+        if tools_exhausted:
+            prompt.append(SystemMessage(content=FORCE_ANSWER_INSTRUCTION))
+        prompt.extend(state["messages"])
+        llm = model if tools_exhausted else model_with_tools
+        response = await llm.ainvoke(prompt)
         return {"messages": [response]}
 
     @trace_node("tools_node", "TOOL")
@@ -58,9 +67,11 @@ def build_agent_graph(
         }
 
     def should_continue(state: AgentState) -> str:
+        # The agent node stops requesting tools once the budget is spent (it is
+        # called without tools then), so a tool-call message here always means we
+        # still have budget to run them.
         last = state["messages"][-1]
-        has_calls = bool(getattr(last, "tool_calls", None))
-        if has_calls and state["steps"] < max_tool_iterations:
+        if getattr(last, "tool_calls", None):
             return "tools"
         return END
 
