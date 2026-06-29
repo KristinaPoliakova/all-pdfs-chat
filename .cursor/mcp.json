@@ -6,6 +6,10 @@
       "env": {
         "MLFLOW_TRACKING_URI": "http://localhost:5001"
       }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--isolated"]
     }
   }
 }
