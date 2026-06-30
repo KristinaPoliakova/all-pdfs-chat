@@ -35,7 +35,9 @@ describe('ConversationSidebar', () => {
     renderWithClient(<ConversationSidebar pdfId="p1" activeId="c1" parsed />);
 
     expect(await screen.findByText('Revenue?')).toBeTruthy();
-    expect(screen.getByText('New conversation')).toBeTruthy();
+    // The untitled conversation renders its fallback title as a link. Scope to
+    // the link role so it isn't confused with the "New conversation" button.
+    expect(screen.getByRole('link', { name: 'New conversation' })).toBeTruthy();
   });
 
   it('creates a conversation and navigates to it', async () => {

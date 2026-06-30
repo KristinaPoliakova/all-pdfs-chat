@@ -65,6 +65,16 @@ test.describe('upload → poll → chat (mocked API)', () => {
     });
 
     await page.route('**/api/v1/pdfs', async (route) => {
+      // The library lists PDFs on load; return an empty library so the grid
+      // shows just the upload tile.
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: '[]',
+        });
+        return;
+      }
       if (route.request().method() !== 'POST') {
         await route.continue();
         return;
@@ -156,24 +166,23 @@ test.describe('upload → poll → chat (mocked API)', () => {
 
     await page.goto('/');
 
-    await expect(page.getByText('e2e@example.com')).toBeVisible({ timeout: 10_000 });
+    // The signed-in top bar exposes a sign-out avatar once auth resolves.
+    await expect(page.getByRole('button', { name: /sign out/i })).toBeVisible({ timeout: 10_000 });
 
-    await page.locator('input[type="file"]').setInputFiles(FIXTURE_PDF);
+    // Two file inputs exist (top-bar Upload + dropzone tile); either uploads.
+    await page.locator('input[type="file"]').first().setInputFiles(FIXTURE_PDF);
 
     await expect(page).toHaveURL(new RegExp(`/pdfs/${PDF_ID}$`), { timeout: 15_000 });
 
-    // While processing, the detail layout shows the status card (not chat).
+    // While processing, the slide-in panel shows the status card (not chat).
     await expect(page.getByText('Processing your document')).toBeVisible();
 
-    // Polling drives the badge to "Ready" once the PDF is parsed.
-    await expect(page.getByText('Ready', { exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Processing your document')).toBeHidden();
-
-    // Before a conversation is open, the index shows the empty state — no chat,
-    // no "Preview mode" placeholder.
+    // Polling parses the PDF; the panel then offers to start a conversation
+    // and the processing state disappears.
     await expect(
       page.getByText('Select a conversation, or start a new one to chat about this PDF.'),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Processing your document')).toBeHidden();
 
     // Create a conversation and confirm we land on its chat route.
     await page.getByRole('button', { name: /new conversation/i }).click();

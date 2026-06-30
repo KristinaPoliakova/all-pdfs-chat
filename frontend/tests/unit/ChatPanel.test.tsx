@@ -42,7 +42,7 @@ describe('ChatPanel', () => {
 
     expect(await screen.findByText('earlier question')).toBeTruthy();
     expect(screen.getByText('earlier answer')).toBeTruthy();
-    expect(screen.getByText('Sources: p. 2')).toBeTruthy();
+    expect(screen.getByText('p. 2')).toBeTruthy();
   });
 
   it('sends to the conversation chat endpoint and renders the answer', async () => {
@@ -55,7 +55,8 @@ describe('ChatPanel', () => {
 
     expect(screen.getByText('What is this?')).toBeTruthy();
     expect(await screen.findByText('It is a report.')).toBeTruthy();
-    expect(await screen.findByText('Sources: p. 1, 3')).toBeTruthy();
+    expect(await screen.findByText('p. 1')).toBeTruthy();
+    expect(screen.getByText('p. 3')).toBeTruthy();
     expect(mockedSend).toHaveBeenCalledWith('c1', 'What is this?');
   });
 

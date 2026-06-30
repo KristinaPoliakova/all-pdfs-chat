@@ -8,6 +8,7 @@ import { renderWithClient } from '../test-utils';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/lib/api/pdfs', () => ({
   listPdfs: vi.fn(),
+  uploadPdf: vi.fn(),
   renamePdf: vi.fn(),
   deletePdf: vi.fn(),
 }));
