@@ -4,6 +4,30 @@ function canUseStorage(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
+const listeners = new Set<() => void>();
+
+function notify(): void {
+  listeners.forEach((listener) => listener());
+}
+
+/**
+ * Subscribe to auth-token changes. Fires for in-tab updates (set/clear) — which
+ * the native `storage` event does NOT cover — as well as cross-tab `storage`
+ * events. Lets the header and library stay in sync from a single source.
+ */
+export function subscribeAuth(callback: () => void): () => void {
+  listeners.add(callback);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', callback);
+  }
+  return () => {
+    listeners.delete(callback);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', callback);
+    }
+  };
+}
+
 export function getAuthToken(): string | null {
   if (!canUseStorage()) {
     return null;
@@ -16,6 +40,7 @@ export function setAuthToken(token: string): void {
     return;
   }
   localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  notify();
 }
 
 export function clearAuthSession(): void {
@@ -23,4 +48,5 @@ export function clearAuthSession(): void {
     return;
   }
   localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  notify();
 }

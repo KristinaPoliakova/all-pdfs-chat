@@ -13,10 +13,13 @@ import * as authApi from '@/lib/api/auth';
 import { setUnauthorizedHandler } from '@/lib/api/client';
 import { ApiError } from '@/lib/api/errors';
 import { clearAuthSession, getAuthToken, setAuthToken } from '@/lib/auth/session';
+import { useHasSession } from '@/hooks/useSession';
 import type { LoginRequest, RegisterRequest, User } from '@/types/auth';
 
 interface AuthContextValue {
   user: User | null;
+  /** Authoritative signed-in flag, driven by the session token (reactive). */
+  isAuthenticated: boolean;
   isLoading: boolean;
   login: (body: LoginRequest) => Promise<void>;
   register: (body: RegisterRequest) => Promise<void>;
@@ -28,6 +31,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isAuthenticated = useHasSession();
 
   const clearSession = useCallback(() => {
     clearAuthSession();
@@ -52,9 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await authApi.getMe();
         if (!cancelled) setUser(me);
       } catch (error) {
+        // Only an explicit 401 means the session is invalid. Transient failures
+        // (network blips, 5xx, timeouts) must NOT drop a still-valid token —
+        // doing so logs the user out of the UI while their data still loads.
         if (error instanceof ApiError && error.status === 401) {
-          clearSession();
-        } else if (!cancelled) {
           clearSession();
         }
       } finally {
@@ -93,8 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, register, logout }),
-    [user, isLoading, login, register, logout],
+    () => ({ user, isAuthenticated, isLoading, login, register, logout }),
+    [user, isAuthenticated, isLoading, login, register, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
