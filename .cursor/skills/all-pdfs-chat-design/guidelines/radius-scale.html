@@ -1,0 +1,22 @@
+<!-- @dsCard group="Spacing" viewport="700x150" name="Radius scale" subtitle="Pills, cards, inputs, bubbles" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); padding: 16px; display: flex; gap: 12px; }
+  .box { flex: 1; min-height: 96px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+  .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); }
+  .v { font-size: 12px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="box" style="border-radius: var(--r-md);"><span class="v">md</span><span class="lbl">10px</span></div>
+  <div class="box" style="border-radius: var(--r-lg);"><span class="v">lg</span><span class="lbl">11px</span></div>
+  <div class="box" style="border-radius: var(--r-xl);"><span class="v">xl</span><span class="lbl">14px</span></div>
+  <div class="box" style="border-radius: var(--r-2xl);"><span class="v">2xl</span><span class="lbl">16px · cards</span></div>
+  <div class="box" style="border-radius: var(--r-3xl);"><span class="v">3xl</span><span class="lbl">22px</span></div>
+  <div class="box" style="border-radius: var(--r-pill);"><span class="v">pill</span><span class="lbl">20px</span></div>
+</body>
+</html>

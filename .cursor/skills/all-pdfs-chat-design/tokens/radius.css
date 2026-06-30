@@ -1,0 +1,17 @@
+/* ============================================================
+   RADIUS — Canvas
+   ============================================================ */
+:root {
+  --r-sm:   8px;    /* close button, key caps */
+  --r-md:   10px;   /* small buttons, send button */
+  --r-lg:   11px;   /* inputs, primary buttons */
+  --r-xl:   14px;   /* chat composer */
+  --r-2xl:  16px;   /* cards, upload tile */
+  --r-3xl:  22px;   /* auth card */
+  --r-pill: 20px;   /* chips, status pills */
+  --r-full: 9999px; /* avatars, dots */
+
+  /* chat bubble corners (one corner tucked toward the sender) */
+  --bubble-user: 15px 15px 4px 15px;
+  --bubble-bot:  15px 15px 15px 4px;
+}

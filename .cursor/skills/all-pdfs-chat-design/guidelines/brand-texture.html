@@ -1,0 +1,21 @@
+<!-- @dsCard group="Brand" viewport="700x150" name="Document stripe texture" subtitle="Signature placeholder for PDF pages & brand panels" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); padding: 16px; display: flex; gap: 14px; }
+  .tile { flex: 1; height: 118px; border: 1px solid var(--border); border-radius: var(--r-2xl); overflow: hidden; position: relative; }
+  .stripe { background: var(--stripe), var(--bg); }
+  .brand { background: var(--stripe-brand); opacity: .55; }
+  .pill { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--accent); background: var(--bg); border: 1px solid var(--accent); padding: 4px 11px; border-radius: var(--r-pill); }
+  .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); position: absolute; left: 10px; bottom: 8px; }
+</style>
+</head>
+<body>
+  <div class="tile stripe"><span class="lbl">--stripe · thumbnail</span></div>
+  <div class="tile stripe"><span class="pill">parsing…</span></div>
+  <div class="tile" style="background: var(--surface);"><div class="brand" style="position:absolute;inset:0;"></div><span class="lbl">--stripe-brand · panel</span></div>
+</body>
+</html>

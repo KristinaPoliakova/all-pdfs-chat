@@ -1,0 +1,20 @@
+<!-- @dsCard group="Components" viewport="700x190" name="Input" subtitle="Labeled field with hint" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); padding: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .lbl { display: block; font-size: 12.5px; font-weight: var(--fw-semibold); margin-bottom: 7px; }
+  .inp { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 12px 14px; font-family: var(--font-sans); font-size: var(--fs-base); color: var(--text); box-sizing: border-box; }
+  .inp.focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus-ring); }
+  .hint { display: block; font-size: var(--fs-meta); color: var(--text-dim); margin-top: 6px; }
+  .ph { color: var(--text-dim); }
+</style>
+</head>
+<body>
+  <div><span class="lbl">Email</span><div class="inp"><span class="ph">you@company.com</span></div></div>
+  <div><span class="lbl">Password</span><div class="inp focus">••••••••</div><span class="hint">At least 8 characters</span></div>
+</body>
+</html>

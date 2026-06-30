@@ -1,0 +1,36 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Library — PdfCard & UploadTile" subtitle="Document tiles in the 3-col grid" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); padding: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { border: 1px solid var(--border); border-radius: var(--r-2xl); overflow: hidden; background: var(--surface); }
+  .card.active { border-color: var(--accent); }
+  .thumb { height: 110px; background: var(--stripe), var(--bg); display: flex; align-items: center; justify-content: center; }
+  .pill { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--accent); background: var(--bg); border: 1px solid var(--accent); padding: 4px 11px; border-radius: var(--r-pill); }
+  .body { padding: 14px 16px; }
+  .name { font-family: var(--font-display); font-size: var(--fs-base); font-weight: var(--fw-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-size: var(--fs-meta); color: var(--text-dim); }
+  .d { width: 6px; height: 6px; border-radius: 50%; }
+  .upload { border: 1.5px dashed var(--border); border-radius: var(--r-2xl); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; color: var(--text-dim); }
+  .plus { width: 44px; height: 44px; border-radius: var(--r-xl); background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="upload">
+    <div class="plus">+</div>
+    <span style="font-size:13px;font-weight:600;color:var(--text);">Drop a PDF</span>
+    <span style="font-size:var(--fs-meta);">up to 10 MB</span>
+  </div>
+  <div class="card active">
+    <div class="thumb"></div>
+    <div class="body"><div class="name">Q3 Financial Report.pdf</div><div class="meta"><span class="d" style="background:var(--success)"></span>Ready · 24 pp · 2 chats</div></div>
+  </div>
+  <div class="card">
+    <div class="thumb"><span class="pill">parsing…</span></div>
+    <div class="body"><div class="name">Transformer Scaling.pdf</div><div class="meta"><span class="d" style="background:var(--accent)"></span>Processing</div></div>
+  </div>
+</body>
+</html>

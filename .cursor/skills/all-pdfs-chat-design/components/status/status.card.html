@@ -1,0 +1,26 @@
+<!-- @dsCard group="Components" viewport="700x150" name="Status — badges, dots, citations" subtitle="Ready / parsing · page chips" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); padding: 22px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-meta); font-weight: var(--fw-semibold); padding: 4px 10px; border-radius: var(--r-pill); }
+  .success { color: var(--success); background: rgba(91,201,138,0.13); }
+  .accent { color: var(--accent); background: var(--accent-soft); }
+  .dot { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-meta); color: var(--text-dim); }
+  .d { width: 6px; height: 6px; border-radius: 50%; }
+  .chip { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); padding: 3px 9px; border-radius: var(--r-pill); }
+</style>
+</head>
+<body>
+  <span class="badge success">● Ready</span>
+  <span class="badge accent">Parsing…</span>
+  <span class="dot"><span class="d" style="background:var(--success)"></span>Ready · 24 pp · 2 chats</span>
+  <span class="dot"><span class="d" style="background:var(--accent);animation:cv-pulse 1.6s ease-in-out infinite"></span>Processing</span>
+  <span class="chip">p. 12</span>
+  <span class="chip">p. 13</span>
+  <span class="chip">p. 27</span>
+</body>
+</html>

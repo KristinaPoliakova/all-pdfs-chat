@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Neutrals" subtitle="Soft pink-tinted papers — the single theme" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); }
+  .wrap { display: flex; gap: 10px; padding: 16px; }
+  .sw { flex: 1; border-radius: var(--r-md); padding: 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 96px; border: 1px solid var(--border); }
+  .name { font-size: 12px; font-weight: var(--fw-semibold); }
+  .hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw" style="background: var(--paper-200);"><span class="name">bg</span><span class="hex">#f7e8f0</span></div>
+    <div class="sw" style="background: var(--white);"><span class="name">surface</span><span class="hex">#ffffff</span></div>
+    <div class="sw" style="background: var(--paper-100);"><span class="name">surface-2</span><span class="hex">#fbecf3</span></div>
+    <div class="sw" style="background: var(--white); color: var(--text);"><span class="name">text</span><span class="hex">#261720</span></div>
+    <div class="sw" style="background: var(--white); color: var(--text-dim);"><span class="name" style="color:var(--text-dim)">text-dim</span><span class="hex">#856b78</span></div>
+  </div>
+</body>
+</html>

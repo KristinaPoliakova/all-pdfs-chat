@@ -1,0 +1,48 @@
+/* ============================================================
+   COLORS — Canvas design system
+   Single theme: a soft pink "paper" surface with a soft light-pink
+   accent (#ff9ec7) as the one leading colour. Accent fills carry dark
+   ink (--accent-ink) so labels stay legible.
+   ============================================================ */
+:root {
+  /* --- base palette --- */
+  --pink-300: #ffc2db;
+  --pink-400: #ff9ec7;     /* brand accent */
+  --pink-500: #f56fa6;     /* accent hover */
+  --pink-600: #d63a82;
+  --pink-700: #bd2c70;
+
+  --paper-50:  #fdf2f7;
+  --paper-100: #fbecf3;    /* surface-2 */
+  --paper-200: #f7e8f0;    /* app background */
+  --white:     #ffffff;    /* surface */
+
+  --green-400: #5bc98a;    /* success / ready */
+  --red-400:   #f0607a;    /* danger */
+  --amber-400: #e6b455;    /* warning */
+
+  /* --- semantic aliases --- */
+  --bg:          var(--paper-200);
+  --surface:     var(--white);
+  --surface-2:   var(--paper-100);
+  --border:      rgba(60, 14, 36, 0.10);
+  --border-strong: rgba(60, 14, 36, 0.18);
+
+  --text:        #261720;
+  --text-dim:    #856b78;
+  --text-on-accent: #3a0a1e;
+
+  --accent:       var(--pink-400);
+  --accent-hover: var(--pink-500);
+  --accent-ink:   #3a0a1e;
+  --accent-soft:  rgba(255, 158, 199, 0.18);
+
+  --bar-bg:   rgba(247, 232, 240, 0.82);   /* translucent sticky bars */
+  --scrim:    rgba(60, 24, 45, 0.32);
+
+  --success:  var(--green-400);
+  --danger:   var(--red-400);
+  --warning:  var(--amber-400);
+
+  --focus-ring: rgba(255, 158, 199, 0.55);
+}

@@ -1,0 +1,23 @@
+/* ============================================================
+   SPACING — Canvas. Loosely 4px-based, but real values from the
+   mocks are kept exact (e.g. 18px grid gap, 34px content top pad).
+   ============================================================ */
+:root {
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  18px;   /* grid gap */
+  --space-6:  22px;   /* panel padding */
+  --space-7:  26px;
+  --space-8:  32px;   /* page horizontal padding */
+  --space-10: 34px;   /* content top padding */
+  --space-12: 48px;
+  --space-16: 80px;   /* content bottom padding */
+
+  /* layout constants */
+  --bar-h: 62px;
+  --content-max: 1180px;
+  --panel-w: 480px;
+  --auth-max: 920px;
+}

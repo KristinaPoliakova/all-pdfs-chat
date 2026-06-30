@@ -1,0 +1,36 @@
+/* ============================================================
+   TYPOGRAPHY — Canvas
+   Display: Space Grotesk · UI/body: Plus Jakarta Sans · Mono: IBM Plex Mono
+   ============================================================ */
+:root {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans:    "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* size scale */
+  --fs-display: 32px;   /* hero / auth headline */
+  --fs-h1:      24px;   /* page title ("Your Library") */
+  --fs-h2:      22px;   /* form title */
+  --fs-h3:      17px;   /* brand wordmark */
+  --fs-title:   16px;   /* card / bar titles */
+  --fs-base:    14px;   /* body, filenames, buttons */
+  --fs-sm:      13.5px; /* messages, secondary body */
+  --fs-meta:    11.5px; /* card meta, captions */
+  --fs-mono:    11px;   /* citation chips, key caps, "parsing…" */
+
+  /* weights */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* line-heights */
+  --lh-tight:  1.18;
+  --lh-snug:   1.4;
+  --lh-normal: 1.58;
+
+  /* letter-spacing */
+  --ls-tight: -0.02em;
+  --ls-snug:  -0.01em;
+  --ls-mono:   0.02em;
+}

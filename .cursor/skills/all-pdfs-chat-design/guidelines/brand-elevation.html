@@ -1,0 +1,20 @@
+<!-- @dsCard group="Brand" viewport="700x160" name="Elevation & overlays" subtitle="Borders at rest; shadows only for overlays" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); padding: 20px; display: flex; gap: 16px; align-items: center; }
+  .box { flex: 1; min-height: 92px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-2xl); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+  .v { font-size: 12px; font-weight: 600; }
+  .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+  <div class="box"><span class="v">Rest</span><span class="lbl">border only</span></div>
+  <div class="box" style="box-shadow: var(--shadow-float);"><span class="v">Float</span><span class="lbl">--shadow-float</span></div>
+  <div class="box" style="box-shadow: var(--shadow-modal);"><span class="v">Modal</span><span class="lbl">--shadow-modal</span></div>
+  <div class="box" style="box-shadow: var(--shadow-panel);"><span class="v">Panel</span><span class="lbl">--shadow-panel</span></div>
+</body>
+</html>

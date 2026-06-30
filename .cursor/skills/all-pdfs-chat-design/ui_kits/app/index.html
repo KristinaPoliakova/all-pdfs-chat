@@ -1,0 +1,208 @@
+<!-- @dsCard group="App" viewport="1180x720" -->
+<!-- @startingPoint section="App" subtitle="All PDFs Chat — library + slide-in chat + auth" viewport="1180x720" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All PDFs Chat — Canvas UI Kit</title>
+<link rel="stylesheet" href="../../styles.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--accent-soft); border-radius: 9px; }
+  textarea { font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/jsx-source" id="appsrc">
+const { useState } = React;
+
+/* ---------- data ---------- */
+const PDFS = [
+  { id:'q3', name:'Q3 Financial Report.pdf', pages:24, status:'ready', chats:2 },
+  { id:'lease', name:'Lease Agreement.pdf', pages:9, status:'ready', chats:1 },
+  { id:'tf', name:'Transformer Scaling.pdf', pages:18, status:'parsing', chats:0 },
+  { id:'ob', name:'Onboarding Handbook.pdf', pages:41, status:'ready', chats:0 },
+  { id:'sh', name:'Shareholder Letter.pdf', pages:6, status:'ready', chats:3 },
+];
+const SEED = {
+  q3: [
+    { role:'user', text:'What was Q3 revenue and how did it compare to Q2?' },
+    { role:'assistant', text:"Q3 revenue was $48.2M, up 14% from Q2's $42.3M. Growth was driven by the enterprise segment, which grew 22% quarter-over-quarter.", cites:['p. 12','p. 13'] },
+    { role:'user', text:'Any risks flagged in the outlook?' },
+    { role:'assistant', text:'Management flagged FX headwinds and longer enterprise sales cycles as the two primary risks to Q4 guidance.', cites:['p. 27'] },
+  ],
+};
+const seedFor = (id) => SEED[id] || [{ role:'assistant', text:'Ask anything about this document — I’ll cite the exact pages each answer comes from.', cites:[] }];
+
+/* ---------- primitives ---------- */
+const Logo = ({ size=30 }) => (
+  <span style={{ display:'inline-flex', alignItems:'center', gap:11 }}>
+    <span style={{ width:size, height:size, borderRadius:'var(--r-md)', background:'var(--accent)', color:'var(--accent-ink)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontWeight:700, fontSize:size*0.5 }}>A</span>
+    <span style={{ fontFamily:'var(--font-display)', fontWeight:600, fontSize:'var(--fs-title)', letterSpacing:'-0.01em' }}>All PDFs Chat</span>
+  </span>
+);
+const Chip = ({ children }) => (
+  <span style={{ fontFamily:'var(--font-mono)', fontSize:'var(--fs-mono)', color:'var(--text-dim)', background:'var(--bg)', border:'1px solid var(--border)', padding:'3px 9px', borderRadius:'var(--r-pill)' }}>{children}</span>
+);
+
+/* ---------- auth ---------- */
+function Auth({ onSignIn }) {
+  const [mode, setMode] = useState('login');
+  const reg = mode === 'register';
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:32 }}>
+      <div style={{ width:920, maxWidth:'100%', display:'grid', gridTemplateColumns:'1fr 1fr', borderRadius:'var(--r-3xl)', overflow:'hidden', border:'1px solid var(--border)', boxShadow:'var(--shadow-modal)' }}>
+        <div style={{ position:'relative', background:'var(--surface)', padding:'44px 40px', display:'flex', flexDirection:'column', justifyContent:'space-between', minHeight:540, overflow:'hidden' }}>
+          <div style={{ position:'absolute', inset:0, background:'var(--stripe-brand)', opacity:.5 }} />
+          <div style={{ position:'absolute', width:360, height:360, borderRadius:'50%', background:'var(--accent)', filter:'blur(120px)', opacity:.28, top:-80, left:-60 }} />
+          <div style={{ position:'relative' }}><Logo size={34} /></div>
+          <div style={{ position:'relative' }}>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:32, lineHeight:1.18, fontWeight:600, letterSpacing:'-0.02em' }}>Talk to your<br/>documents.</div>
+            <p style={{ margin:'16px 0 0', fontSize:'14.5px', lineHeight:1.6, color:'var(--text-dim)', maxWidth:300 }}>Upload a PDF, let it parse, then ask anything — every answer cites the exact page it came from.</p>
+          </div>
+          <div style={{ position:'relative', display:'flex', gap:8 }}><Chip>cited sources</Chip><Chip>private</Chip></div>
+        </div>
+        <div style={{ background:'var(--bg)', padding:'48px 44px', display:'flex', flexDirection:'column', justifyContent:'center' }}>
+          <div style={{ fontFamily:'var(--font-display)', fontSize:22, fontWeight:600, letterSpacing:'-0.01em' }}>{reg ? 'Create your account' : 'Welcome back'}</div>
+          <div style={{ fontSize:'13.5px', color:'var(--text-dim)', marginTop:6 }}>{reg ? 'Start chatting with your PDFs in seconds.' : 'Sign in to your document library.'}</div>
+          <Field label="Email" placeholder="you@company.com" type="email" top={26} />
+          <Field label="Password" placeholder="••••••••" type="password" top={16} />
+          <button onClick={onSignIn} style={{ marginTop:24, width:'100%', border:'none', borderRadius:'var(--r-lg)', padding:13, background:'var(--accent)', color:'var(--accent-ink)', fontSize:'14.5px', fontWeight:700, cursor:'pointer' }}>{reg ? 'Create account' : 'Sign in'}</button>
+          <div style={{ marginTop:20, textAlign:'center', fontSize:13, color:'var(--text-dim)' }}>
+            {reg ? 'Already have an account? ' : 'New here? '}
+            <span onClick={()=>setMode(reg?'login':'register')} style={{ color:'var(--accent)', fontWeight:600, cursor:'pointer' }}>{reg ? 'Sign in' : 'Create one'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Field({ label, placeholder, type, top }) {
+  const [v, setV] = useState('');
+  const [f, setF] = useState(false);
+  return (
+    <div style={{ marginTop:top }}>
+      <label style={{ display:'block', fontSize:'12.5px', fontWeight:600, marginBottom:7 }}>{label}</label>
+      <input type={type} value={v} placeholder={placeholder} onChange={e=>setV(e.target.value)} onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+        style={{ width:'100%', background:'var(--surface)', border:`1px solid ${f?'var(--accent)':'var(--border)'}`, boxShadow:f?'0 0 0 2px var(--focus-ring)':'none', borderRadius:'var(--r-lg)', padding:'12px 14px', fontSize:'var(--fs-base)', color:'var(--text)', outline:'none' }} />
+    </div>
+  );
+}
+
+/* ---------- library + chat ---------- */
+function App({ onSignOut }) {
+  const [activeId, setActiveId] = useState(null);
+  const [convos, setConvos] = useState({});
+  const [draft, setDraft] = useState('');
+  const active = PDFS.find(p => p.id === activeId);
+  const open = (id) => { setConvos(c => c[id] ? c : { ...c, [id]: seedFor(id) }); setActiveId(id); setDraft(''); };
+  const close = () => { setActiveId(null); setDraft(''); };
+  const send = () => {
+    const t = draft.trim(); if (!t) return;
+    setConvos(c => ({ ...c, [activeId]: [...(c[activeId]||[]), { role:'user', text:t }, { role:'assistant', text:'Based on this document, here’s what I found relevant to your question — with the source pages cited below.', cites:['p. 14'] }] }));
+    setDraft('');
+  };
+  const msgs = activeId ? (convos[activeId] || seedFor(activeId)) : [];
+
+  return (
+    <div style={{ position:'relative', minHeight:'100vh' }}>
+      <div style={{ position:'sticky', top:0, zIndex:20, display:'flex', alignItems:'center', justifyContent:'space-between', gap:20, padding:'16px 32px', background:'var(--bar-bg)', backdropFilter:'var(--blur-bar)', borderBottom:'1px solid var(--border)' }}>
+        <Logo />
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <button style={{ border:'none', borderRadius:'var(--r-md)', padding:'10px 16px', background:'var(--accent)', color:'var(--accent-ink)', fontSize:'13.5px', fontWeight:700, cursor:'pointer' }}>+ Upload</button>
+          <span onClick={onSignOut} title="Sign out" style={{ width:32, height:32, borderRadius:'50%', background:'var(--surface-2)', border:'1px solid var(--border)', cursor:'pointer' }} />
+        </div>
+      </div>
+
+      <div style={{ maxWidth:1180, margin:'0 auto', padding:'34px 32px 80px' }}>
+        <div style={{ marginBottom:22 }}>
+          <div style={{ fontFamily:'var(--font-display)', fontSize:24, fontWeight:600, letterSpacing:'-0.01em' }}>Your Library</div>
+          <div style={{ fontSize:'13.5px', color:'var(--text-dim)', marginTop:4 }}>{PDFS.length} documents · click a document to open the conversation</div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:18 }}>
+          <div style={{ border:'1.5px dashed var(--border)', borderRadius:'var(--r-2xl)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, minHeight:236, color:'var(--text-dim)', cursor:'pointer' }}>
+            <div style={{ width:46, height:46, borderRadius:'var(--r-xl)', background:'var(--surface-2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, color:'var(--accent)' }}>+</div>
+            <span style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>Drop a PDF</span>
+            <span style={{ fontSize:'var(--fs-meta)' }}>or click to browse · up to 10 MB</span>
+          </div>
+          {PDFS.map(p => <Card key={p.id} p={p} onClick={()=>open(p.id)} />)}
+        </div>
+      </div>
+
+      {active && (
+        <React.Fragment>
+          <div onClick={close} style={{ position:'fixed', inset:0, zIndex:40, background:'var(--scrim)', backdropFilter:'var(--blur-scrim)', animation:'cv-fade-in .18s ease' }} />
+          <div style={{ position:'fixed', top:0, right:0, bottom:0, zIndex:50, width:480, maxWidth:'94vw', background:'var(--surface)', borderLeft:'1px solid var(--border)', boxShadow:'var(--shadow-panel)', display:'flex', flexDirection:'column', animation:'cv-slide-in .22s var(--ease-out)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding:'18px 22px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ minWidth:0 }}>
+                <div style={{ fontFamily:'var(--font-display)', fontSize:15, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{active.name}</div>
+                <div style={{ fontSize:'11.5px', color:'var(--text-dim)', marginTop:2 }}>{active.pages} pages · {active.chats||0} conversation{active.chats===1?'':'s'}</div>
+              </div>
+              <button onClick={close} style={{ width:30, height:30, border:'none', borderRadius:'var(--r-sm)', background:'var(--surface-2)', color:'var(--text-dim)', fontSize:15, cursor:'pointer' }}>✕</button>
+            </div>
+            <div style={{ flex:1, overflowY:'auto', padding:22, display:'flex', flexDirection:'column', gap:16 }}>
+              {msgs.map((m,i) => m.role==='user'
+                ? <div key={i} style={{ alignSelf:'flex-end', maxWidth:'84%', background:'var(--accent)', color:'var(--accent-ink)', fontSize:'var(--fs-sm)', lineHeight:1.5, padding:'10px 14px', borderRadius:'var(--bubble-user)' }}>{m.text}</div>
+                : <div key={i} style={{ alignSelf:'flex-start', maxWidth:'90%' }}>
+                    <div style={{ background:'var(--surface-2)', fontSize:'var(--fs-sm)', lineHeight:'var(--lh-normal)', padding:'12px 15px', borderRadius:'var(--bubble-bot)' }}>{m.text}</div>
+                    {m.cites && m.cites.length>0 && <div style={{ display:'flex', gap:6, marginTop:7, flexWrap:'wrap' }}>{m.cites.map(c=><Chip key={c}>{c}</Chip>)}</div>}
+                  </div>
+              )}
+            </div>
+            <div style={{ padding:'14px 22px 20px', borderTop:'1px solid var(--border)' }}>
+              <div style={{ display:'flex', alignItems:'flex-end', gap:9, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:'var(--r-xl)', padding:'8px 8px 8px 15px' }}>
+                <textarea rows={1} value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } }} placeholder="Ask about this PDF…"
+                  style={{ flex:1, resize:'none', border:'none', background:'transparent', outline:'none', fontSize:'var(--fs-sm)', lineHeight:1.5, color:'var(--text)', padding:'5px 0', maxHeight:90 }} />
+                <button onClick={send} style={{ width:34, height:34, border:'none', borderRadius:'var(--r-md)', background:'var(--accent)', color:'var(--accent-ink)', fontSize:16, fontWeight:700, cursor:'pointer', flex:'none' }}>↑</button>
+              </div>
+            </div>
+          </div>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+function Card({ p, onClick }) {
+  const [h, setH] = useState(false);
+  const parsing = p.status === 'parsing';
+  const meta = parsing ? 'Processing' : `Ready · ${p.pages} pp${p.chats?` · ${p.chats} chat${p.chats>1?'s':''}`:''}`;
+  return (
+    <div onClick={onClick} onMouseEnter={()=>setH(true)} onMouseLeave={()=>setH(false)}
+      style={{ border:`1px solid ${h?'var(--accent)':'var(--border)'}`, borderRadius:'var(--r-2xl)', overflow:'hidden', background:'var(--surface)', cursor:'pointer', transform:h?'translateY(-2px)':'none', transition:'border-color .15s, transform .15s' }}>
+      <div style={{ position:'relative', height:128, background:'var(--stripe), var(--bg)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        {parsing && <span style={{ fontFamily:'var(--font-mono)', fontSize:'var(--fs-mono)', color:'var(--accent)', background:'var(--bg)', padding:'5px 11px', borderRadius:'var(--r-pill)', border:'1px solid var(--accent)', animation:'cv-pulse 1.6s ease-in-out infinite' }}>parsing…</span>}
+      </div>
+      <div style={{ padding:'15px 16px' }}>
+        <div style={{ fontFamily:'var(--font-display)', fontSize:'var(--fs-base)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.name}</div>
+        <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:8 }}>
+          <span style={{ width:6, height:6, borderRadius:'50%', background: parsing?'var(--accent)':'var(--success)' }} />
+          <span style={{ fontSize:'var(--fs-meta)', color:'var(--text-dim)' }}>{meta}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Root() {
+  const [authed, setAuthed] = useState(true);
+  return authed ? <App onSignOut={()=>setAuthed(false)} /> : <Auth onSignIn={()=>setAuthed(true)} />;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+</script>
+<script>
+  window.addEventListener('load', function () {
+    var src = document.getElementById('appsrc').textContent;
+    var code = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
+    (0, eval)(code);
+  });
+</script>
+</body>
+</html>

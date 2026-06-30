@@ -1,0 +1,23 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Semantic & status" subtitle="Ready / danger / warning — used sparingly" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); }
+  .wrap { display: flex; gap: 10px; padding: 16px; }
+  .sw { flex: 1; border-radius: var(--r-md); padding: 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 96px; border: 1px solid var(--border); }
+  .name { font-size: 12px; font-weight: var(--fw-semibold); }
+  .hex { font-family: var(--font-mono); font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw" style="background: var(--green-400);"><span class="name" style="color:#06241a">success · ready</span><span class="hex" style="color:#06241a">#5bc98a</span></div>
+    <div class="sw" style="background: var(--red-400);"><span class="name" style="color:#2a0610">danger</span><span class="hex" style="color:#2a0610">#f0607a</span></div>
+    <div class="sw" style="background: var(--amber-400);"><span class="name" style="color:#2a1d04">warning</span><span class="hex" style="color:#2a1d04">#e6b455</span></div>
+    <div class="sw" style="background: var(--accent-soft); border-color: var(--accent);"><span class="name">focus-ring</span><span class="hex" style="color:var(--text-dim)">pink 55%</span></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!-- @dsCard group="Components" viewport="700x260" name="Chat bubbles" subtitle="User / assistant turns with citations" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--surface); padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .user { align-self: flex-end; max-width: 84%; background: var(--accent); color: var(--accent-ink); font-size: var(--fs-sm); line-height: 1.5; padding: 10px 14px; border-radius: var(--bubble-user); }
+  .botwrap { align-self: flex-start; max-width: 90%; }
+  .bot { background: var(--surface-2); color: var(--text); font-size: var(--fs-sm); line-height: var(--lh-normal); padding: 12px 15px; border-radius: var(--bubble-bot); }
+  .cites { display: flex; gap: 6px; margin-top: 7px; }
+  .chip { font-family: var(--font-mono); font-size: var(--fs-mono); color: var(--text-dim); background: var(--bg); border: 1px solid var(--border); padding: 3px 9px; border-radius: var(--r-pill); }
+</style>
+</head>
+<body>
+  <div class="user">What was Q3 revenue and how did it compare to Q2?</div>
+  <div class="botwrap">
+    <div class="bot">Q3 revenue was <strong style="color:var(--accent)">$48.2M</strong>, up 14% from Q2's $42.3M — driven by 22% enterprise growth.</div>
+    <div class="cites"><span class="chip">p. 12</span><span class="chip">p. 13</span></div>
+  </div>
+</body>
+</html>

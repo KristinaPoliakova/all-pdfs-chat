@@ -1,0 +1,27 @@
+<!-- @dsCard group="Components" viewport="700x150" name="Buttons" subtitle="Primary / secondary / ghost · sizes · icon" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); padding: 22px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-weight: var(--fw-bold); line-height: 1; border-radius: var(--r-lg); cursor: pointer; border: 1px solid transparent; padding: 10px 16px; font-size: var(--fs-base); }
+  .primary { background: var(--accent); color: var(--accent-ink); }
+  .secondary { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+  .ghost { background: transparent; color: var(--text-dim); }
+  .sm { padding: 8px 13px; font-size: 13px; }
+  .icon { width: 34px; height: 34px; justify-content: center; padding: 0; font-size: 16px; border-radius: var(--r-md); }
+  .disabled { opacity: .5; }
+</style>
+</head>
+<body>
+  <button class="btn primary">+ Upload</button>
+  <button class="btn secondary">Rename</button>
+  <button class="btn ghost">Cancel</button>
+  <button class="btn primary sm">Send</button>
+  <button class="btn primary disabled">Send</button>
+  <button class="btn primary icon">↑</button>
+  <button class="btn secondary icon">✕</button>
+</body>
+</html>

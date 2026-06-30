@@ -1,0 +1,23 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Brand accent" subtitle="Soft light pink — the single brand hue" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg); color: var(--text); }
+  .wrap { display: flex; gap: 10px; padding: 16px; }
+  .sw { flex: 1; border-radius: var(--r-md); padding: 12px; display: flex; flex-direction: column; justify-content: space-between; min-height: 96px; border: 1px solid var(--border); }
+  .name { font-size: 12px; font-weight: var(--fw-semibold); }
+  .hex { font-family: var(--font-mono); font-size: 11px; opacity: .85; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="sw" style="background: var(--pink-300);"><span class="name" style="color:#3a0a1e">pink-300</span><span class="hex" style="color:#3a0a1e">#ffc2db</span></div>
+    <div class="sw" style="background: var(--pink-400);"><span class="name" style="color:#3a0a1e">pink-400 · accent</span><span class="hex" style="color:#3a0a1e">#ff9ec7</span></div>
+    <div class="sw" style="background: var(--pink-500);"><span class="name" style="color:#3a0a1e">pink-500 · hover</span><span class="hex" style="color:#3a0a1e">#f56fa6</span></div>
+    <div class="sw" style="background: var(--accent-soft);"><span class="name">accent-soft</span><span class="hex">18% fill</span></div>
+  </div>
+</body>
+</html>
