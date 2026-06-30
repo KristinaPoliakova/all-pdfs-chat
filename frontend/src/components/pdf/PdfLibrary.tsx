@@ -1,48 +1,51 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { usePdfList } from '@/hooks/usePdfList';
-import { getAuthToken } from '@/lib/auth/session';
+import { useHasSession } from '@/hooks/useSession';
+import { UploadDropzone } from '@/components/upload/UploadDropzone';
 import { PdfListItem } from './PdfListItem';
 
-function subscribeToStorage(callback: () => void): () => void {
-  if (typeof window === 'undefined') return () => {};
-  window.addEventListener('storage', callback);
-  return () => window.removeEventListener('storage', callback);
-}
-
 export function PdfLibrary() {
-  // The session token lives in localStorage, which is unavailable during SSR.
-  // useSyncExternalStore uses the server snapshot (false) for the initial
-  // hydration render so server and client agree, then re-renders with the
-  // client value — avoiding a hydration mismatch.
-  const hasSession = useSyncExternalStore(
-    subscribeToStorage,
-    () => Boolean(getAuthToken()),
-    () => false,
-  );
+  const hasSession = useHasSession();
   const { data, isPending, isError } = usePdfList();
 
   if (!hasSession) return null;
 
+  const count = data?.length ?? 0;
+  const countLabel = count === 1 ? '1 document' : `${count} documents`;
+
   return (
-    <section className="mt-10" aria-labelledby="library-heading">
-      <h2 id="library-heading" className="mb-3 text-sm font-semibold text-foreground">
-        Your PDFs
-      </h2>
-      {isPending ? (
-        <p className="text-sm text-muted">Loading your PDFs…</p>
-      ) : isError ? (
-        <p className="text-sm text-danger">Couldn&apos;t load your PDFs. Please refresh.</p>
-      ) : !data || data.length === 0 ? (
-        <p className="text-sm text-muted">No PDFs yet — upload one above.</p>
-      ) : (
-        <ul className="space-y-3">
-          {data.map((document) => (
-            <PdfListItem key={document.id} document={document} />
-          ))}
-        </ul>
-      )}
+    <section aria-labelledby="library-heading">
+      <div className="mb-[22px]">
+        <h1 id="library-heading" className="font-display text-[var(--fs-h1)] font-semibold tracking-[var(--ls-snug)] text-[var(--text)]">
+          Your Library
+        </h1>
+        <p className="mt-1 text-[var(--fs-sm)] text-[var(--text-dim)]">
+          {countLabel} · click a document to open the conversation
+        </p>
+      </div>
+
+      <ul className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+        <li>
+          <UploadDropzone />
+        </li>
+
+        {isPending ? (
+          <li className="flex min-h-[236px] items-center justify-center rounded-[var(--r-2xl)] border border-[var(--border)] text-[var(--fs-sm)] text-[var(--text-dim)] sm:col-span-2">
+            Loading your PDFs…
+          </li>
+        ) : isError ? (
+          <li className="flex min-h-[236px] items-center justify-center rounded-[var(--r-2xl)] border border-[var(--border)] text-[var(--fs-sm)] text-[var(--danger)] sm:col-span-2">
+            Couldn&apos;t load your PDFs. Please refresh.
+          </li>
+        ) : !data || data.length === 0 ? (
+          <li className="flex min-h-[236px] items-center justify-center rounded-[var(--r-2xl)] border border-dashed border-[var(--border)] text-center text-[var(--fs-sm)] text-[var(--text-dim)] sm:col-span-2">
+            No PDFs yet — drop one to get started.
+          </li>
+        ) : (
+          data.map((document) => <PdfListItem key={document.id} document={document} />)
+        )}
+      </ul>
     </section>
   );
 }

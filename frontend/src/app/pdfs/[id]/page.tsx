@@ -12,12 +12,16 @@ export default function PdfConversationIndexPage() {
   const { data } = usePdfDocument(pdfId);
 
   if (data && !isChatEnabled(data.processing_status)) {
-    return <PdfStatusCard document={data} />;
+    return (
+      <div className="flex-1 overflow-y-auto p-[22px]">
+        <PdfStatusCard document={data} />
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border p-10 text-center">
-      <p className="text-sm text-muted">
+    <div className="flex flex-1 items-center justify-center p-[22px] text-center">
+      <p className="text-[13px] text-[var(--text-dim)]">
         Select a conversation, or start a new one to chat about this PDF.
       </p>
     </div>

@@ -1,34 +1,13 @@
 'use client';
 
-import { useCallback, useRef, useState, type DragEvent } from 'react';
-import type { UseMutationResult } from '@tanstack/react-query';
-import { validatePdfFile } from '@/hooks/usePdfUpload';
-import type { PdfDocument } from '@/types/pdf';
+import { useState, type DragEvent } from 'react';
+import { Plus } from 'lucide-react';
+import { useFileUpload } from '@/hooks/usePdfUpload';
+import { UploadErrorAlert } from '@/components/upload/UploadErrorAlert';
 
-type UploadMutation = UseMutationResult<PdfDocument, Error, File>;
-
-export function UploadDropzone({ upload }: { upload: UploadMutation }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+export function UploadDropzone() {
+  const { inputRef, isPending, validationError, handleFile, openPicker, upload } = useFileUpload();
   const [isDragOver, setIsDragOver] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  const { mutate, isPending } = upload;
-
-  const handleFile = useCallback(
-    (file: File | undefined) => {
-      if (!file || isPending) return;
-
-      const err = validatePdfFile(file);
-      if (err) {
-        setValidationError(err);
-        return;
-      }
-
-      setValidationError(null);
-      mutate(file);
-    },
-    [isPending, mutate],
-  );
 
   const onDragOver = (e: DragEvent) => {
     e.preventDefault();
@@ -47,22 +26,19 @@ export function UploadDropzone({ upload }: { upload: UploadMutation }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-2">
       <button
         type="button"
         disabled={isPending}
-        onClick={() => inputRef.current?.click()}
+        onClick={openPicker}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={[
-          'w-full rounded-xl border-2 border-dashed border-border bg-surface p-12 text-center transition-shadow',
-          'hover:ring-2 hover:ring-[var(--color-accent-cyan)]',
-          isDragOver ? 'ring-2 ring-[var(--color-accent-cyan)]' : '',
-          isPending ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+          'flex min-h-[236px] w-full cursor-pointer flex-col items-center justify-center gap-[10px] rounded-[var(--r-2xl)] border-[1.5px] border-dashed p-6 text-center transition-colors',
+          isDragOver ? 'border-[var(--accent)]' : 'border-[var(--border)]',
+          isPending ? 'cursor-not-allowed opacity-60' : 'hover:border-[var(--accent)]',
+        ].join(' ')}
       >
         <input
           ref={inputRef}
@@ -75,40 +51,21 @@ export function UploadDropzone({ upload }: { upload: UploadMutation }) {
             e.target.value = '';
           }}
         />
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background">
-          <PdfIcon />
-        </div>
-        <p className="text-sm font-medium text-foreground">
-          {isPending ? 'Uploading…' : 'Drop PDF or click to browse'}
-        </p>
-        <p className="mt-1 text-xs text-muted">PDF only, up to 10 MB</p>
+        <span className="flex h-[46px] w-[46px] items-center justify-center rounded-[13px] bg-[var(--surface-2)] text-[var(--accent)]">
+          <Plus className="h-6 w-6" strokeWidth={1.75} aria-hidden />
+        </span>
+        <span className="text-[13px] font-semibold text-[var(--text)]">
+          {isPending ? 'Uploading…' : 'Drop a PDF'}
+        </span>
+        <span className="text-[11.5px] text-[var(--text-dim)]">or click to browse · up to 10 MB</span>
       </button>
 
       {validationError ? (
-        <p role="alert" className="text-sm text-danger">
+        <p role="alert" className="text-[12px] text-[var(--danger)]">
           {validationError}
         </p>
       ) : null}
+      <UploadErrorAlert error={upload.error} returnTo="/" />
     </div>
-  );
-}
-
-function PdfIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="h-6 w-6 text-muted"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
-      />
-    </svg>
   );
 }

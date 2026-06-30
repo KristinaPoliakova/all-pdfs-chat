@@ -2,13 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getPdf } from '@/lib/api/pdfs';
-import { getAuthToken } from '@/lib/auth/session';
 import { isTerminal } from '@/lib/processing-status';
 import { useAuth } from '@/hooks/useAuth';
+import { useHasSession } from '@/hooks/useSession';
 
 export function usePdfDocument(pdfId: string) {
   const { isLoading: authLoading } = useAuth();
-  const hasSession = Boolean(getAuthToken());
+  const hasSession = useHasSession();
 
   return useQuery({
     queryKey: ['pdf', pdfId],

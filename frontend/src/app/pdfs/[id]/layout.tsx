@@ -1,103 +1,110 @@
 'use client';
 
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, type ReactNode } from 'react';
 import { SignInPrompt } from '@/components/auth/SignInPrompt';
 import { AppShell } from '@/components/layout/AppShell';
+import { ChatOverlay, PanelHeader } from '@/components/chat/ChatOverlay';
 import { ConversationSidebar } from '@/components/conversation/ConversationSidebar';
-import { PdfHeader } from '@/components/pdf/PdfHeader';
+import { PdfLibrary } from '@/components/pdf/PdfLibrary';
 import { useAuth } from '@/hooks/useAuth';
+import { useConversations } from '@/hooks/useConversations';
 import { usePdfDocument } from '@/hooks/usePdfDocument';
-import { getAuthToken } from '@/lib/auth/session';
+import { useHasSession } from '@/hooks/useSession';
 import { ApiError } from '@/lib/api/errors';
-import { isChatEnabled } from '@/lib/processing-status';
+import { isChatEnabled, isInProgress } from '@/lib/processing-status';
+import type { PdfDocument } from '@/types/pdf';
 
-function Skeleton() {
-  return (
-    <div className="animate-pulse space-y-4 rounded-lg border border-border p-6">
-      <div className="h-5 w-2/3 rounded bg-border" />
-      <div className="h-4 w-1/4 rounded bg-border" />
-    </div>
-  );
+function panelMeta(document: PdfDocument, conversationCount: number): string {
+  if (isInProgress(document.processing_status)) {
+    return 'Still parsing…';
+  }
+  const pages = document.page_count != null ? `${document.page_count} pages` : 'Document';
+  const convos =
+    conversationCount === 1 ? '1 conversation' : `${conversationCount} conversations`;
+  return `${pages} · ${convos}`;
+}
+
+function PanelMessage({ children }: { children: ReactNode }) {
+  return <div className="flex flex-1 items-center justify-center p-6 text-center">{children}</div>;
 }
 
 export default function PdfLayout({ children }: { children: ReactNode }) {
   const params = useParams();
+  const router = useRouter();
   const id = typeof params.id === 'string' ? params.id : '';
   const conversationId =
     typeof params.conversationId === 'string' ? params.conversationId : null;
   const { isLoading: authLoading } = useAuth();
-  const hasSession = Boolean(getAuthToken());
+  const hasSession = useHasSession();
   const { data, isPending, isError, error } = usePdfDocument(id);
+  const { data: conversations } = useConversations(hasSession && id ? id : '');
   const returnTo = id ? `/pdfs/${id}` : '/';
 
+  const close = useCallback(() => router.push('/'), [router]);
+
+  let body: ReactNode;
+  let header: ReactNode = <PanelHeader title="Conversation" onClose={close} />;
+
   if (!id) {
-    return (
-      <AppShell>
-        <p className="text-sm text-danger">Invalid document link.</p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
-          Back to library
-        </Link>
-      </AppShell>
+    body = (
+      <PanelMessage>
+        <p className="text-[13px] text-[var(--danger)]">Invalid document link.</p>
+      </PanelMessage>
     );
-  }
-
-  if (authLoading || (hasSession && isPending)) {
-    return (
-      <AppShell>
-        <Skeleton />
-      </AppShell>
+  } else if (authLoading || (hasSession && isPending)) {
+    body = (
+      <PanelMessage>
+        <p className="text-[13px] text-[var(--text-dim)]">Loading document…</p>
+      </PanelMessage>
     );
-  }
-
-  if (!hasSession || (isError && error instanceof ApiError && error.status === 401)) {
-    return (
-      <AppShell>
+  } else if (!hasSession || (isError && error instanceof ApiError && error.status === 401)) {
+    body = (
+      <PanelMessage>
         <SignInPrompt message="Sign in to view this document." returnTo={returnTo} />
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
-          Back to library
-        </Link>
-      </AppShell>
+      </PanelMessage>
     );
-  }
-
-  if (isError && error instanceof ApiError && error.status === 404) {
-    return (
-      <AppShell>
-        <p className="text-sm text-muted">Document not found.</p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
-          Back to library
-        </Link>
-      </AppShell>
+  } else if (isError && error instanceof ApiError && error.status === 404) {
+    body = (
+      <PanelMessage>
+        <p className="text-[13px] text-[var(--text-dim)]">Document not found.</p>
+      </PanelMessage>
     );
-  }
-
-  if (isError || !data) {
-    return (
-      <AppShell>
-        <p className="text-sm text-danger">Could not load document. Please try again.</p>
-        <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
-          Back to library
-        </Link>
-      </AppShell>
+  } else if (isError || !data) {
+    body = (
+      <PanelMessage>
+        <p className="text-[13px] text-[var(--danger)]">Could not load document. Please try again.</p>
+      </PanelMessage>
     );
-  }
-
-  return (
-    <AppShell>
-      <PdfHeader document={data} />
-      <div className="flex gap-6">
+  } else {
+    header = (
+      <PanelHeader
+        title={data.filename}
+        meta={panelMeta(data, conversations?.length ?? 0)}
+        onClose={close}
+      />
+    );
+    body = (
+      <>
         <ConversationSidebar
           pdfId={id}
           activeId={conversationId}
           parsed={isChatEnabled(data.processing_status)}
         />
-        <div className="min-w-0 flex-1">{children}</div>
-      </div>
-      <Link href="/" className="mt-6 inline-block text-sm text-accent-cyan hover:underline">
-        Back to library
-      </Link>
-    </AppShell>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <AppShell>
+        <PdfLibrary />
+      </AppShell>
+      <ChatOverlay onClose={close}>
+        {header}
+        {body}
+      </ChatOverlay>
+    </>
   );
 }

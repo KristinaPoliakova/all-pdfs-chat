@@ -18,7 +18,7 @@ export function PdfHeader({ document }: { document: PdfDocument }) {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <header className="mb-4 border-b border-border pb-4">
+    <header className="mb-4 border-b border-[var(--border)] pb-4">
       {editing ? (
         <InlineEdit
           initialValue={document.filename}
@@ -38,7 +38,7 @@ export function PdfHeader({ document }: { document: PdfDocument }) {
       ) : (
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold text-foreground">{document.filename}</h1>
+            <h1 className="font-display truncate text-[var(--fs-h3)] font-semibold text-[var(--text)]">{document.filename}</h1>
             <div className="mt-1">
               <ProcessingStatusBadge status={document.processing_status} />
             </div>
@@ -47,14 +47,14 @@ export function PdfHeader({ document }: { document: PdfDocument }) {
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface"
+              className="rounded-[var(--r-md)] border border-[var(--border)] px-3 py-1.5 text-[var(--fs-sm)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
             >
               Rename
             </button>
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-danger hover:bg-surface"
+              className="rounded-[var(--r-md)] border border-[var(--border)] px-3 py-1.5 text-[var(--fs-sm)] text-[var(--danger)] transition-colors hover:border-[var(--danger)] hover:bg-[var(--surface-2)]"
             >
               Delete PDF
             </button>
@@ -62,7 +62,7 @@ export function PdfHeader({ document }: { document: PdfDocument }) {
         </div>
       )}
       {error ? (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 text-[var(--fs-sm)] text-[var(--danger)]">
           {error}
         </p>
       ) : null}

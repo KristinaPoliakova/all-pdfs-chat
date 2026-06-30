@@ -48,7 +48,7 @@ export function ConversationListItem({
           onCancel={() => setEditing(false)}
         />
         {error ? (
-          <p role="alert" className="mt-1 text-xs text-danger">
+          <p role="alert" className="mt-1 text-[11.5px] text-[var(--danger)]">
             {error}
           </p>
         ) : null}
@@ -59,8 +59,10 @@ export function ConversationListItem({
   return (
     <li
       className={[
-        'group rounded-md px-2 py-1.5 text-sm',
-        active ? 'bg-surface text-foreground' : 'text-muted hover:bg-surface/60',
+        'group rounded-[var(--r-sm)] px-2 py-[6px] text-[12.5px]',
+        active
+          ? 'bg-[var(--surface-2)] text-[var(--text)]'
+          : 'text-[var(--text-dim)] hover:bg-[var(--surface-2)]/60',
       ].join(' ')}
     >
       <div className="flex items-center justify-between gap-2">
@@ -75,7 +77,7 @@ export function ConversationListItem({
               setError(null);
               setEditing(true);
             }}
-            className="rounded px-1 text-xs text-muted hover:text-foreground"
+            className="rounded px-1 text-[11px] text-[var(--text-dim)] hover:text-[var(--text)]"
           >
             Rename
           </button>
@@ -86,14 +88,14 @@ export function ConversationListItem({
               setError(null);
               setConfirming(true);
             }}
-            className="rounded px-1 text-xs text-muted hover:text-danger"
+            className="rounded px-1 text-[11px] text-[var(--text-dim)] hover:text-[var(--danger)]"
           >
             Delete
           </button>
         </span>
       </div>
       {error ? (
-        <p role="alert" className="mt-1 text-xs text-danger">
+        <p role="alert" className="mt-1 text-[11.5px] text-[var(--danger)]">
           {error}
         </p>
       ) : null}

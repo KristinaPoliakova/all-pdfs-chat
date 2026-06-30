@@ -44,19 +44,19 @@ export function InlineEdit({
         maxLength={maxLength}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKeyDown}
-        className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-[var(--color-accent-cyan)]"
+        className="flex-1 rounded-[var(--r-md)] border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[var(--fs-sm)] text-[var(--text)] outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
       />
       <button
         type="button"
         onClick={submit}
-        className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background hover:opacity-90"
+        className="rounded-[var(--r-md)] bg-[var(--accent)] px-2 py-1 text-xs font-medium text-[var(--accent-ink)] transition-opacity hover:opacity-90"
       >
         Save
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-surface"
+        className="rounded-[var(--r-md)] border border-[var(--border)] px-2 py-1 text-xs text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
       >
         Cancel
       </button>

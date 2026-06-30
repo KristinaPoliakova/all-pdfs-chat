@@ -1,19 +1,12 @@
 'use client';
 
 import { PdfLibrary } from '@/components/pdf/PdfLibrary';
+import { LandingHero } from '@/components/landing/LandingHero';
 import { AppShell } from '@/components/layout/AppShell';
-import { UploadDropzone } from '@/components/upload/UploadDropzone';
-import { UploadErrorAlert } from '@/components/upload/UploadErrorAlert';
-import { usePdfUpload } from '@/hooks/usePdfUpload';
+import { useHasSession } from '@/hooks/useSession';
 
 export default function Home() {
-  const upload = usePdfUpload();
+  const hasSession = useHasSession();
 
-  return (
-    <AppShell>
-      <UploadDropzone upload={upload} />
-      <UploadErrorAlert error={upload.error} returnTo="/" />
-      <PdfLibrary />
-    </AppShell>
-  );
+  return <AppShell>{hasSession ? <PdfLibrary /> : <LandingHero />}</AppShell>;
 }

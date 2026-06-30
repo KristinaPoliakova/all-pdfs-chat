@@ -29,13 +29,13 @@ export function UploadErrorAlert({
   return (
     <div
       role="alert"
-      className="mt-4 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger"
+      className="rounded-[var(--r-xl)] border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-4 py-3 text-[var(--fs-sm)] text-[var(--danger)]"
     >
       <p>{message}</p>
       {isUnauthorized ? (
         <Link
           href={loginPath(returnTo)}
-          className="mt-2 inline-block font-medium text-accent-cyan hover:underline"
+          className="mt-2 inline-block font-semibold text-[var(--accent)] hover:underline"
         >
           Sign in to upload
         </Link>

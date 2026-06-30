@@ -1,24 +1,210 @@
 @import "tailwindcss";
 
-@theme {
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --color-accent-cyan: #06b6d4;
-  --color-accent-purple: #7c3aed;
-  --color-surface: #fafafa;
-  --color-success: #059669;
-  --color-danger: #dc2626;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+/*
+ * Canvas design tokens — the single source of truth for the app. There is one
+ * theme: a soft pink "paper" surface with a rose-pink accent as the single
+ * leading colour. Theme-independent scales (radius, type, spacing, motion,
+ * effects) live in the shared :root block below.
+ */
+:root {
+  /* base palette */
+  --pink-300: #ffc2db;
+  --pink-400: #ff9ec7;
+  --pink-500: #f56fa6;
+  --pink-600: #d63a82;
+  --pink-700: #bd2c70;
+
+  --paper-50: #fdf2f7;
+  --paper-100: #fbecf3;
+  --paper-200: #f7e8f0;
+  --white: #ffffff;
+
+  --green-400: #5bc98a;
+  --red-400: #f0607a;
+  --amber-400: #e6b455;
+
+  /* semantic */
+  --bg: var(--paper-200);
+  --surface: var(--white);
+  --surface-2: var(--paper-100);
+  --border: rgba(60, 14, 36, 0.1);
+  --border-strong: rgba(60, 14, 36, 0.18);
+
+  --text: #261720;
+  --text-dim: #856b78;
+  --text-on-accent: #3a0a1e;
+
+  --accent: var(--pink-400);
+  --accent-hover: var(--pink-500);
+  --accent-ink: #3a0a1e;
+  --accent-soft: rgba(255, 158, 199, 0.18);
+
+  --bar-bg: rgba(247, 232, 240, 0.82);
+  --scrim: rgba(60, 24, 45, 0.32);
+
+  --success: var(--green-400);
+  --danger: var(--red-400);
+  --warning: var(--amber-400);
+
+  --focus-ring: rgba(255, 158, 199, 0.55);
+
+  /* app-specific (no package equivalent) */
+  --scrollbar-thumb: rgba(255, 158, 199, 0.45);
+}
+
+/* Theme-independent scales, mirrored from the Canvas package tokens. */
+:root {
+  /* type */
+  --font-display: var(--font-space), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex), "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  --fs-display: 32px;
+  --fs-h1: 24px;
+  --fs-h2: 22px;
+  --fs-h3: 17px;
+  --fs-title: 16px;
+  --fs-base: 14px;
+  --fs-sm: 13.5px;
+  --fs-meta: 11.5px;
+  --fs-mono: 11px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --lh-tight: 1.18;
+  --lh-snug: 1.4;
+  --lh-normal: 1.58;
+  --ls-tight: -0.02em;
+  --ls-snug: -0.01em;
+  --ls-mono: 0.02em;
+
+  /* radius */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 11px;
+  --r-xl: 14px;
+  --r-2xl: 16px;
+  --r-3xl: 22px;
+  --r-pill: 20px;
+  --r-full: 9999px;
+  --bubble-user: 15px 15px 4px 15px;
+  --bubble-bot: 15px 15px 15px 4px;
+
+  /* spacing + layout constants */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 18px;
+  --space-6: 22px;
+  --space-7: 26px;
+  --space-8: 32px;
+  --space-10: 34px;
+  --space-12: 48px;
+  --space-16: 80px;
+  --bar-h: 62px;
+  --content-max: 1180px;
+  --panel-w: 480px;
+  --auth-max: 920px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --dur-fast: 0.15s;
+  --dur-base: 0.22s;
+  --dur-slow: 0.3s;
+
+  /* elevation + blur (reserved for true overlays) */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --shadow-panel: -40px 0 80px rgba(0, 0, 0, 0.5);
+  --shadow-modal: 0 40px 100px rgba(0, 0, 0, 0.45);
+  --blur-bar: blur(14px);
+  --blur-scrim: blur(2px);
+
+  /* signature diagonal "document" stripe texture */
+  --stripe: repeating-linear-gradient(
+    135deg,
+    var(--surface-2),
+    var(--surface-2) 9px,
+    transparent 9px,
+    transparent 18px
+  );
+  --stripe-brand: repeating-linear-gradient(
+    135deg,
+    var(--surface-2),
+    var(--surface-2) 10px,
+    transparent 10px,
+    transparent 22px
+  );
 }
 
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--font-sans);
 }
 
-.gradient-accent {
-  background: linear-gradient(135deg, var(--color-accent-cyan), var(--color-accent-purple));
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes canvas-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes canvas-slide-in {
+  from {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes canvas-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-canvas-pulse {
+  animation: canvas-pulse 1.6s ease-in-out infinite;
+}
+
+.animate-canvas-slide-in {
+  animation: canvas-slide-in var(--dur-base) var(--ease-out);
+}
+
+.animate-canvas-fade-in {
+  animation: canvas-fade-in 0.18s ease;
 }

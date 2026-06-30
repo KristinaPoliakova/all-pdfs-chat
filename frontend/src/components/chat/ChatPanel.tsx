@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { ArrowUp } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { sendConversationMessage } from '@/lib/api/conversations';
 import { ApiError, chatErrorMessage } from '@/lib/api/errors';
@@ -15,45 +16,33 @@ export interface ChatMessage {
   citations?: number[];
 }
 
-function LockIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      className="h-5 w-5 shrink-0"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"
-      />
-    </svg>
-  );
-}
-
 function MessageBubble({ message }: { message: ChatMessage }) {
-  const isUser = message.role === 'user';
-  const hasCitations = !isUser && message.citations !== undefined && message.citations.length > 0;
-  return (
-    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-      <p
-        className={[
-          'max-w-[85%] rounded-lg px-3 py-2 text-sm',
-          isUser
-            ? 'bg-foreground text-background'
-            : 'border border-border bg-background text-foreground',
-        ].join(' ')}
-      >
+  if (message.role === 'user') {
+    return (
+      <div className="max-w-[84%] self-end rounded-[var(--bubble-user)] bg-[var(--accent)] px-[14px] py-[10px] text-[var(--fs-sm)] leading-[1.5] text-[var(--accent-ink)]">
         {message.content}
-      </p>
-      {hasCitations ? (
-        <p className="mt-1 px-1 text-xs text-muted">
-          Sources: p. {message.citations!.join(', ')}
-        </p>
+      </div>
+    );
+  }
+
+  const citations = message.citations ?? [];
+
+  return (
+    <div className="max-w-[90%] self-start">
+      <div className="rounded-[var(--bubble-bot)] bg-[var(--surface-2)] px-[15px] py-3 text-[var(--fs-sm)] leading-[var(--lh-normal)] text-[var(--text)]">
+        {message.content}
+      </div>
+      {citations.length > 0 ? (
+        <div className="mt-[7px] flex flex-wrap gap-[6px]">
+          {citations.map((page, index) => (
+            <span
+              key={`${page}-${index}`}
+              className="font-mono rounded-[var(--r-pill)] border border-[var(--border)] bg-[var(--bg)] px-[9px] py-[3px] text-[var(--fs-mono)] text-[var(--text-dim)]"
+            >
+              p. {page}
+            </span>
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -67,6 +56,55 @@ function toUiMessage(message: ConversationMessage): ChatMessage {
     createdAt: new Date().toISOString(),
     citations: message.citations,
   };
+}
+
+function Composer({
+  inputId,
+  draft,
+  disabled,
+  placeholder,
+  onChange,
+  onKeyDown,
+  onSend,
+  canSend,
+}: {
+  inputId: string;
+  draft: string;
+  disabled: boolean;
+  placeholder: string;
+  onChange?: (value: string) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  onSend?: () => void;
+  canSend: boolean;
+}) {
+  return (
+    <div className="border-t border-[var(--border)] px-[22px] pb-5 pt-[14px]">
+      <label htmlFor={inputId} className="sr-only">
+        Chat message
+      </label>
+      <div className="flex items-end gap-[9px] rounded-[var(--r-xl)] border border-[var(--border)] bg-[var(--bg)] py-2 pl-[15px] pr-2">
+        <textarea
+          id={inputId}
+          rows={1}
+          value={draft}
+          disabled={disabled}
+          placeholder={placeholder}
+          onChange={(e) => onChange?.(e.target.value)}
+          onKeyDown={onKeyDown}
+          className="max-h-[90px] flex-1 resize-none border-none bg-transparent py-[5px] text-[13.5px] leading-[1.5] text-[var(--text)] outline-none placeholder:text-[var(--text-dim)] disabled:opacity-60"
+        />
+        <button
+          type="button"
+          aria-label="Send"
+          disabled={disabled || !canSend}
+          onClick={onSend}
+          className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--r-md)] bg-[var(--accent)] text-[var(--accent-ink)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <ArrowUp className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function ChatPanel({
@@ -86,6 +124,7 @@ export function ChatPanel({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hydratedFor = useRef<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Reseed local messages from server history when the conversation changes
   // or its history first loads. Local state then owns in-session turns.
@@ -96,6 +135,13 @@ export function ChatPanel({
       setError(null);
     }
   }, [history, conversationId]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && typeof el.scrollTo === 'function') {
+      el.scrollTo({ top: el.scrollHeight });
+    }
+  }, [messages]);
 
   const send = useCallback(async () => {
     const text = draft.trim();
@@ -148,50 +194,33 @@ export function ChatPanel({
 
   if (!enabled) {
     return (
-      <section
-        className="mt-6 rounded-lg border border-border bg-surface/80 p-6 opacity-70"
-        aria-labelledby={`${inputId}-heading`}
-      >
-        <div className="flex items-center gap-2 text-muted">
-          <LockIcon />
-          <h2 id={`${inputId}-heading`} className="text-sm font-medium">
-            Chat unlocks when parsing completes
-          </h2>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-1 items-center justify-center p-6 text-center">
+          <p className="text-[13px] text-[var(--text-dim)]">Chat unlocks when parsing completes</p>
         </div>
-        <label htmlFor={inputId} className="sr-only">
-          Chat message
-        </label>
-        <textarea
-          id={inputId}
+        <Composer
+          inputId={inputId}
+          draft=""
           disabled
-          rows={3}
-          placeholder="Ask a question about this PDF…"
-          className="mt-4 w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted"
+          placeholder="Ask about this PDF…"
+          canSend={false}
         />
-        <div className="mt-3 flex justify-end">
-          <button
-            type="button"
-            disabled
-            className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background opacity-50"
-          >
-            Send
-          </button>
-        </div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="mt-6 rounded-lg border border-border p-6" aria-labelledby={`${inputId}-heading`}>
-      <h2 id={`${inputId}-heading`} className="sr-only">
-        Chat
-      </h2>
-
-      <div className="mb-4 max-h-80 space-y-3 overflow-y-auto" role="log" aria-live="polite">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-[22px]"
+      >
         {historyPending && messages.length === 0 ? (
-          <p className="text-sm text-muted">Loading conversation…</p>
+          <p className="text-[13px] text-[var(--text-dim)]">Loading conversation…</p>
         ) : messages.length === 0 ? (
-          <p className="text-sm text-muted">Ask a question about this PDF.</p>
+          <p className="text-[13px] text-[var(--text-dim)]">Ask a question about this PDF.</p>
         ) : (
           messages.map((message) => <MessageBubble key={message.id} message={message} />)
         )}
@@ -200,35 +229,22 @@ export function ChatPanel({
       {error ? (
         <p
           role="alert"
-          className="mb-3 rounded-md border border-[var(--color-accent-red,#ef4444)] bg-surface px-3 py-2 text-sm text-foreground"
+          className="mx-[22px] mb-2 rounded-[10px] border border-[var(--danger)]/40 bg-[var(--danger)]/10 px-3 py-2 text-[13px] text-[var(--danger)]"
         >
           {error}
         </p>
       ) : null}
 
-      <label htmlFor={inputId} className="sr-only">
-        Chat message
-      </label>
-      <textarea
-        id={inputId}
-        rows={3}
-        value={draft}
+      <Composer
+        inputId={inputId}
+        draft={draft}
         disabled={isSending}
-        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Ask about this PDF…"
+        onChange={setDraft}
         onKeyDown={onKeyDown}
-        placeholder="Ask a question about this PDF…"
-        className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-[var(--color-accent-cyan)] disabled:opacity-60"
+        onSend={() => void send()}
+        canSend={Boolean(draft.trim())}
       />
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          disabled={isSending || !draft.trim()}
-          onClick={() => void send()}
-          className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Send
-        </button>
-      </div>
-    </section>
+    </div>
   );
 }

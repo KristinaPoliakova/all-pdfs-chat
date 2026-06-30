@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { AppShell } from '@/components/layout/AppShell';
+import { AuthShell } from '@/components/auth/AuthShell';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { GuestGuard } from '@/components/auth/AuthGuard';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,20 +16,15 @@ function RegisterForm() {
 
   return (
     <GuestGuard returnTo={returnTo}>
-      <AppShell>
-        <div className="mx-auto max-w-sm">
-          <h2 className="mb-6 text-xl font-semibold tracking-tight text-foreground">
-            Create account
-          </h2>
-          <AuthForm
-            mode="register"
-            onSubmit={async (values) => {
-              await register(values);
-              router.replace(returnTo);
-            }}
-          />
-        </div>
-      </AppShell>
+      <AuthShell>
+        <AuthForm
+          mode="register"
+          onSubmit={async (values) => {
+            await register(values);
+            router.replace(returnTo);
+          }}
+        />
+      </AuthShell>
     </GuestGuard>
   );
 }

@@ -2,10 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { listPdfs } from '@/lib/api/pdfs';
-import { getAuthToken } from '@/lib/auth/session';
+import { useHasSession } from '@/hooks/useSession';
 
 export function usePdfList() {
-  const hasSession = Boolean(getAuthToken());
+  const hasSession = useHasSession();
   return useQuery({
     queryKey: ['pdfs'],
     queryFn: listPdfs,
