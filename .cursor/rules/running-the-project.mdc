@@ -1,0 +1,74 @@
+---
+description: How to run, test, and lint this repo (backend uses uv; venv is in backend/.venv, not the root)
+alwaysApply: true
+---
+
+# Running this project (read before running any command)
+
+This is a two-part repo. **Commands differ per part and the Python venv is NOT at
+the repo root** — a fresh session must follow this exactly instead of guessing.
+
+## Layout & toolchain
+
+- `backend/` — Python **3.14**, FastAPI + background worker, managed by **`uv`**.
+  - The virtualenv is at **`backend/.venv`** (gitignored, so it won't show in file
+    search). It is **uv-managed** — do **not** `source .venv/bin/activate` or call
+    `python`/`pip` directly. On this machine bare `python` does not exist (only `python3`).
+  - **Always run Python via `uv run` from inside `backend/`.**
+- `frontend/` — Next.js (React 19), managed by **`npm`**. **Always run npm / vitest / next
+  from inside `frontend/`.** Running them from the repo root makes Vite/Vitest create a stray
+  `node_modules/.vite` cache at the root (there is no root `package.json`).
+
+## Backend commands (run from `backend/`)
+
+```bash
+cd backend
+uv sync                       # install/refresh deps into backend/.venv
+uv run pytest -q              # tests (SQL tests need the Postgres test DB — see below)
+uv run ruff check .           # lint
+uv run ruff format .          # format
+uv run mypy                   # type-check (strict)
+uv run alembic upgrade head   # apply DB migrations
+uv run uvicorn app.main:app --reload   # run the API directly (usually use dev.sh instead)
+```
+
+## Frontend commands (run from `frontend/`)
+
+```bash
+cd frontend
+npm install        # if node_modules is missing
+npm run dev        # dev server (http://localhost:3000)
+npm test           # vitest
+npm run lint       # eslint
+npm run typecheck  # tsc --noEmit
+npm run build      # next build
+```
+
+## Full local stack (preferred for running the app)
+
+From the repo root. This copies env files, starts Postgres + MLflow via Docker,
+runs `uv sync` + migrations, and launches API + worker + frontend:
+
+```bash
+./scripts/dev.sh              # start everything (Ctrl+C to stop app processes)
+./scripts/dev.sh --setup-only # env + Postgres + deps + test DB, no servers (use before tests)
+./scripts/dev.sh --stop       # stop orphaned servers on ports 8000/3000
+```
+
+## Tests that touch Postgres
+
+SQL tests (`test_*_sql.py` and SQL-backed cases) connect to the **`all_pdfs_chat_test`**
+database. Create it first with `./scripts/dev.sh --setup-only`, then:
+
+```bash
+cd backend && uv run pytest -q
+```
+
+Override the URL if needed via `TEST_DATABASE_URL`.
+
+## Before claiming work is complete
+
+- Backend: `cd backend && uv run ruff check . && uv run mypy && uv run pytest -q`
+- Frontend: `cd frontend && npm run lint && npm run typecheck && npm test`
+
+Reference docs: `README.md`, `backend/backend.md`, `scripts/README.md`.
