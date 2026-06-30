@@ -1,0 +1,49 @@
+---
+description: Commit message format for this repo — conventional-commit subject, optional body only for a significant non-obvious WHY
+alwaysApply: true
+---
+
+# Commit messages
+
+## Subject (always)
+
+A single conventional-commit line:
+
+```
+type(scope): short imperative description
+```
+
+- `type`: one of `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `build`, `ci`.
+- `scope`: optional but preferred (e.g. `agent`, `frontend`, `env`). Drop it (`type: description`) when none fits.
+- Imperative mood, lower-case after the colon, no trailing period, aim for <= 72 chars.
+
+## Body (only when it earns its place)
+
+**Default to subject-only.** Add a body *only* when there is a significant,
+non-obvious WHY that a future reader couldn't infer from the diff — e.g. a
+chosen trade-off, a workaround for an external bug, a constraint (RAM, prod VM),
+or why an obvious alternative was rejected.
+
+When you do add one:
+
+- One blank line after the subject, then 1–3 terse lines or bullets. No paragraphs.
+- Explain **why**, never restate **what** changed.
+- Skip it entirely if the only thing to say is obvious (e.g. "added the missing env var", "renamed the function"). That is noise — leave it out.
+
+## Examples
+
+Subject-only (the common case):
+
+```
+fix(env): correct REQUEST_TRACING_ENABLED typo and default tracing on
+```
+
+With a justified WHY:
+
+```
+feat(agent): add Groq as a hosted chat-model provider
+
+Lets the agent run on Groq's free hosted tier so small/low-RAM prod VMs
+don't have to self-host a model. Default model avoids llama-3.3-70b-versatile,
+which intermittently emits malformed tool calls (Groq 400 tool_use_failed).
+```
