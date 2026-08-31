@@ -1,7 +1,6 @@
 ---
 name: all-pdfs-chat-design
 description: Use this skill to generate well-branded interfaces and assets for All PDFs Chat (the "Canvas" design system) — production code or throwaway prototypes/mocks. Contains design guidelines, color & type tokens, fonts, components, and an app UI kit.
-user-invocable: true
 ---
 
 Read `readme.md` in this skill, then explore the other files.
