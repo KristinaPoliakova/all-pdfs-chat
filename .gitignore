@@ -234,7 +234,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Local superpowers implementation plans and specs (not for version control)
-docs/superpowers/plans/
-docs/superpowers/specs/
-/docs/superpowers/specs/
-/docs/deployment.md
+docs
+
+
+
