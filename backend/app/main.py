@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +11,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy.exc import OperationalError
 
 import app.infrastructure.persistence.sql.models as _db_models  # noqa: F401 - register ORM models with Base.metadata
-from app.agent.tracing import configure_tracing
+from app.agent.tracing import setup_tracing_with_retry
 from app.api.router import api_router
 from app.api.routes import health
 from app.config.settings import get_settings
@@ -53,7 +54,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
-    configure_tracing(settings)
+    # path so a slow or unreachable MLflow can never block the API from serving.
+    tracing_task = asyncio.create_task(setup_tracing_with_retry(settings))
+    fastapi_app.state.tracing_setup_task = tracing_task
 
     try:
         await init_database()
@@ -78,6 +81,9 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     fastapi_app.state.ready = True
     yield
     fastapi_app.state.ready = False
+    tracing_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await tracing_task
     await reset_session_repository_state()
     await reset_user_repository_state()
     await reset_job_queue_state()

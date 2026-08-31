@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import os
+import threading
+
 import app.agent.tracing as tracing_mod
 import app.observability.http_tracing as http_tracing
 import pytest
@@ -245,6 +249,129 @@ def test_agent_trace_records_error_and_reraises(monkeypatch: pytest.MonkeyPatch)
     tags = call.get("tags", {})
     assert tags.get("error_type") == "ValueError"
     assert tags.get("pdf_id") == "pdf-9"
+
+
+def test_is_enabled_reflects_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tracing_mod, "_enabled", False)
+    assert tracing_mod.is_enabled() is False
+    monkeypatch.setattr(tracing_mod, "_enabled", True)
+    assert tracing_mod.is_enabled() is True
+
+
+def test_apply_failfast_http_defaults_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", raising=False)
+    monkeypatch.delenv("MLFLOW_HTTP_REQUEST_TIMEOUT", raising=False)
+
+    tracing_mod._apply_failfast_http_defaults()
+
+    assert os.environ["MLFLOW_HTTP_REQUEST_MAX_RETRIES"] == "0"
+    assert os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] == "3"
+
+
+def test_apply_failfast_http_defaults_respects_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "4")
+    monkeypatch.delenv("MLFLOW_HTTP_REQUEST_TIMEOUT", raising=False)
+
+    tracing_mod._apply_failfast_http_defaults()
+
+    # An operator-provided value must win over the fail-fast default.
+    assert os.environ["MLFLOW_HTTP_REQUEST_MAX_RETRIES"] == "4"
+
+
+async def test_setup_tracing_with_retry_enables_after_transient_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # MLflow is slow to boot: the first attempts fail to enable, a later one succeeds.
+    attempts = {"n": 0}
+
+    def fake_configure(settings: object) -> None:
+        attempts["n"] += 1
+        if attempts["n"] >= 3:
+            tracing_mod._enabled = True
+
+    monkeypatch.setattr(tracing_mod, "configure_tracing", fake_configure)
+
+    await tracing_mod.setup_tracing_with_retry(
+        make_test_settings(tracing_enabled=True, mlflow_tracking_uri="http://localhost:5000"),
+        max_attempts=5,
+        retry_delay_seconds=0,
+    )
+
+    assert attempts["n"] == 3
+    assert tracing_mod.is_enabled() is True
+
+
+async def test_setup_tracing_with_retry_gives_up_after_max_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts = {"n": 0}
+
+    def never_enables(settings: object) -> None:
+        attempts["n"] += 1
+
+    monkeypatch.setattr(tracing_mod, "configure_tracing", never_enables)
+
+    await tracing_mod.setup_tracing_with_retry(
+        make_test_settings(tracing_enabled=True, mlflow_tracking_uri="http://localhost:5000"),
+        max_attempts=3,
+        retry_delay_seconds=0,
+    )
+
+    assert attempts["n"] == 3
+    assert tracing_mod.is_enabled() is False
+
+
+async def test_setup_tracing_with_retry_single_shot_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Disabled tracing can never enable, so it must not spin through retries.
+    attempts = {"n": 0}
+
+    def fake_configure(settings: object) -> None:
+        attempts["n"] += 1
+
+    monkeypatch.setattr(tracing_mod, "configure_tracing", fake_configure)
+
+    await tracing_mod.setup_tracing_with_retry(
+        make_test_settings(tracing_enabled=False),
+        max_attempts=5,
+        retry_delay_seconds=0,
+    )
+
+    assert attempts["n"] == 1
+
+
+async def test_setup_tracing_with_retry_does_not_block_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression: a slow/unreachable MLflow must NOT block startup. The blocking
+    # setup runs in a worker thread, so the event loop stays free and the task
+    # is still pending while setup is stuck.
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocking_configure(settings: object) -> None:
+        started.set()
+        release.wait(timeout=5)
+        tracing_mod._enabled = True
+
+    monkeypatch.setattr(tracing_mod, "configure_tracing", blocking_configure)
+
+    task = asyncio.create_task(
+        tracing_mod.setup_tracing_with_retry(
+            make_test_settings(tracing_enabled=True, mlflow_tracking_uri="http://localhost:5000"),
+            max_attempts=1,
+            retry_delay_seconds=0,
+        )
+    )
+
+    # Wait until setup is mid-flight in its worker thread; the loop served us here.
+    await asyncio.to_thread(started.wait, 5)
+    assert task.done() is False
+
+    release.set()
+    await asyncio.wait_for(task, timeout=5)
+    assert tracing_mod.is_enabled() is True
 
 
 async def test_trace_node_runs_fn_directly_when_disabled() -> None:

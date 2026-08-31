@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import functools
 import logging
+import os
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from typing import Any, TypeVar, cast
@@ -17,7 +19,30 @@ logger = logging.getLogger(__name__)
 _AGENT_SPAN_NAME = "agent.answer"
 _enabled = False
 
+# Bound the MLflow REST client so a slow/unreachable server fails fast instead of
+# blocking on its defaults (120s timeout x 7 retries with backoff = minutes).
+# setdefault lets operators override via the environment.
+_FAILFAST_HTTP_ENV = {
+    "MLFLOW_HTTP_REQUEST_MAX_RETRIES": "0",
+    "MLFLOW_HTTP_REQUEST_TIMEOUT": "3",
+}
+
+# Background setup retries so a slow MLflow boot still gets traced, without ever
+# blocking API startup. 12 x 5s ~= 60s, comfortably covering MLflow's boot.
+_SETUP_MAX_ATTEMPTS = 12
+_SETUP_RETRY_DELAY_SECONDS = 5.0
+
 AsyncFunc = TypeVar("AsyncFunc", bound=Callable[..., Awaitable[Any]])
+
+
+def is_enabled() -> bool:
+    """Whether MLflow agent tracing is currently active."""
+    return _enabled
+
+
+def _apply_failfast_http_defaults() -> None:
+    for key, value in _FAILFAST_HTTP_ENV.items():
+        os.environ.setdefault(key, value)
 
 
 def _safe_disable() -> None:
@@ -44,6 +69,8 @@ def configure_tracing(settings: Settings) -> None:
         _safe_disable()
         return
 
+    _apply_failfast_http_defaults()
+
     try:
         # Set the tracking URI BEFORE enabling: otherwise MLflow probes for a
         # default local file store, importing backends the slim client omits
@@ -59,6 +86,37 @@ def configure_tracing(settings: Settings) -> None:
 
     _enabled = True
     logger.info("MLflow tracing enabled (uri=%s).", uri)
+
+
+async def setup_tracing_with_retry(
+    settings: Settings,
+    *,
+    max_attempts: int = _SETUP_MAX_ATTEMPTS,
+    retry_delay_seconds: float = _SETUP_RETRY_DELAY_SECONDS,
+) -> None:
+    """Configure agent tracing off the startup critical path.
+
+    Runs the blocking MLflow setup in a worker thread so it never blocks the API
+    event loop, and retries while it fails to enable so a slow MLflow boot is
+    tolerated. No-ops in one shot when tracing is disabled or misconfigured
+    (empty URI), since retrying could never succeed. Never raises.
+    """
+    if not settings.tracing_enabled or not settings.mlflow_tracking_uri.strip():
+        await asyncio.to_thread(configure_tracing, settings)
+        return
+
+    for attempt in range(1, max_attempts + 1):
+        await asyncio.to_thread(configure_tracing, settings)
+        if is_enabled():
+            return
+        if attempt < max_attempts:
+            logger.info(
+                "MLflow tracing not ready (attempt %d/%d); retrying in %.0fs.",
+                attempt,
+                max_attempts,
+                retry_delay_seconds,
+            )
+            await asyncio.sleep(retry_delay_seconds)
 
 
 class _AgentTraceHandle:
