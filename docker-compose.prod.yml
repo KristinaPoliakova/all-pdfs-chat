@@ -32,6 +32,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+      # Grace window for app boot (DB init + migrations check) before failing
+      # probes count against the container; tracing setup is off this path.
+      start_period: 30s
     networks: [appnet]
     # API command comes from the image: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
