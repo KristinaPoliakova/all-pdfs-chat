@@ -18,7 +18,7 @@ async def close_chat_model(model: BaseChatModel) -> None:
     if isinstance(model, ChatGroq):
         await model.async_client._client.close()
     elif isinstance(model, ChatOllama):
-        await model._async_client.close()
+        await model._async_client.close()  # type: ignore[no-untyped-call]
 
 
 def _build_chat_model(cfg: Settings) -> BaseChatModel:

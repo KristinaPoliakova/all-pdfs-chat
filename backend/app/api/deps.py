@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from fastapi import Depends, Request
 
 from app.agent.memory import LangGraphConversationMemory
@@ -21,7 +23,7 @@ from app.infrastructure.factories.pdf import create_pdf_repository
 
 
 def get_file_storage(request: Request) -> FileStorage:
-    return request.app.state.file_storage
+    return cast(FileStorage, request.app.state.file_storage)
 
 
 def get_pdf_repository() -> PdfRepository:
