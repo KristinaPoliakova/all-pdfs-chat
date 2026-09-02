@@ -32,3 +32,6 @@ class AzureBlobStorage:
     def exists(self, path: str) -> bool:
         blob = self._container.get_blob_client(path)
         return blob.exists()
+
+    def close(self) -> None:
+        self._client.close()

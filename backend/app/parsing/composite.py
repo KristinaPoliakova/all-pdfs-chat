@@ -60,3 +60,7 @@ class CompositeDocumentParser:
 
         results.sort(key=lambda extract: extract.page_number)
         return results
+
+    def close(self) -> None:
+        if self._azure_parser is not None:
+            self._azure_parser.close()

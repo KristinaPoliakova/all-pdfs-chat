@@ -15,6 +15,8 @@ class DocumentParser(Protocol):
         page_text_by_number: dict[int, str] | None = None,
     ) -> list[PageExtract]: ...
 
+    def close(self) -> None: ...
+
 
 class AzureComplexPageParser(Protocol):
     async def parse_pages(
@@ -23,6 +25,8 @@ class AzureComplexPageParser(Protocol):
         *,
         page_numbers: list[int],
     ) -> list[PageExtract]: ...
+
+    def close(self) -> None: ...
 
 
 def split_pages_by_class(

@@ -69,6 +69,7 @@ class _FakeDocumentIntelligenceClient:
         self._poller = poller
         self.last_request: Any | None = None
         self.last_pages: str | None = None
+        self.closed = False
 
     def begin_analyze_document(
         self,
@@ -82,6 +83,9 @@ class _FakeDocumentIntelligenceClient:
         self.last_pages = pages
         assert model_id == "prebuilt-read"
         return self._poller
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_format_azure_pages_parameter_groups_consecutive_pages() -> None:
@@ -213,6 +217,48 @@ async def test_pipeline_sets_parsing_failed_on_azure_timeout() -> None:
     assert updated.processing_status == PdfProcessingStatus.PARSING_FAILED
     assert updated.parsing_error is not None
     assert "timed out" in updated.parsing_error.lower()
+
+
+@pytest.mark.asyncio
+async def test_parse_pages_reuses_built_client_across_calls() -> None:
+    poller = _FakePoller(_FakeAnalyzeResult(pages=[]))
+    built_clients: list[_FakeDocumentIntelligenceClient] = []
+
+    def _tracking_build_client() -> _FakeDocumentIntelligenceClient:
+        client = _FakeDocumentIntelligenceClient(poller)
+        built_clients.append(client)
+        return client
+
+    settings = make_test_settings(
+        parsing_enabled=True,
+        azure_document_intelligence_endpoint="https://example.cognitiveservices.azure.com",
+        azure_document_intelligence_api_key="test-key",
+    )
+    parser = AzureDocumentIntelligenceParser(settings=settings)
+    parser._build_client = _tracking_build_client  # type: ignore[method-assign]
+
+    await parser.parse_pages(b"%PDF", page_numbers=[1])
+    await parser.parse_pages(b"%PDF", page_numbers=[1])
+
+    assert len(built_clients) == 1
+
+
+def test_close_closes_cached_client() -> None:
+    poller = _FakePoller(_FakeAnalyzeResult(pages=[]))
+    client = _FakeDocumentIntelligenceClient(poller)
+    settings = make_test_settings(parsing_enabled=True)
+    parser = AzureDocumentIntelligenceParser(settings=settings, client=client)
+
+    parser.close()
+
+    assert client.closed is True
+
+
+def test_close_without_built_client_is_noop() -> None:
+    settings = make_test_settings(parsing_enabled=True)
+    parser = AzureDocumentIntelligenceParser(settings=settings)
+
+    parser.close()
 
 
 def test_create_document_parser_without_azure_when_disabled() -> None:

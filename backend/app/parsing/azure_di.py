@@ -68,7 +68,7 @@ class AzureDocumentIntelligenceParser:
         )
 
     def _analyze_and_map(self, pdf_bytes: bytes, page_numbers: list[int]) -> list[PageExtract]:
-        client = self._client or self._build_client()
+        client = self._get_client()
         pages_param = format_azure_pages_parameter(page_numbers)
         poller = client.begin_analyze_document(
             MODEL_ID,
@@ -102,6 +102,15 @@ class AzureDocumentIntelligenceParser:
             )
         extracts.sort(key=lambda extract: extract.page_number)
         return extracts
+
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+
+    def _get_client(self) -> DocumentIntelligenceClient:
+        if self._client is None:
+            self._client = self._build_client()
+        return self._client
 
     def _build_client(self) -> DocumentIntelligenceClient:
         endpoint = self._settings.azure_document_intelligence_endpoint.strip()

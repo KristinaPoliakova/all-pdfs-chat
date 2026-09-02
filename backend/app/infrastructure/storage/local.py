@@ -27,6 +27,9 @@ class LocalFileStorage:
     def exists(self, path: str) -> bool:
         return self._resolve(path).is_file()
 
+    def close(self) -> None:
+        pass
+
     def _resolve(self, path: str) -> Path:
         normalized = Path(path)
         if normalized.is_absolute() or ".." in normalized.parts:

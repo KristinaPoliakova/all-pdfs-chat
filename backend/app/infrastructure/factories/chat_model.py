@@ -12,6 +12,15 @@ def create_chat_model(settings: Settings | None = None) -> BaseChatModel:
     return _build_chat_model(settings or get_settings())
 
 
+async def close_chat_model(model: BaseChatModel) -> None:
+    # BaseChatModel has no public close API; reach into each provider's async
+    # client to release its underlying HTTP connection pool.
+    if isinstance(model, ChatGroq):
+        await model.async_client._client.close()
+    elif isinstance(model, ChatOllama):
+        await model._async_client.close()
+
+
 def _build_chat_model(cfg: Settings) -> BaseChatModel:
     if cfg.uses_groq:
         return _build_groq_model(cfg)

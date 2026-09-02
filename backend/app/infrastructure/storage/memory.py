@@ -20,3 +20,6 @@ class InMemoryFileStorage:
 
     def exists(self, path: str) -> bool:
         return path in self._objects
+
+    def close(self) -> None:
+        pass
