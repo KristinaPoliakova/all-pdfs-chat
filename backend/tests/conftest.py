@@ -27,12 +27,6 @@ from app.application.auth.deps import get_session_repository, get_user_repositor
 from app.application.ports.conversation_memory import ChatMessage
 from app.classification.service import PdfClassificationService
 from app.config.settings import Settings, get_settings
-from app.infrastructure.factories.conversation import reset_conversation_repository_state
-from app.infrastructure.factories.jobs import reset_job_queue_state
-from app.infrastructure.factories.pdf import reset_pdf_repository_state
-from app.infrastructure.factories.sessions import reset_session_repository_state
-from app.infrastructure.factories.storage import reset_file_storage_state
-from app.infrastructure.factories.users import reset_user_repository_state
 from app.infrastructure.persistence.memory.conversation import InMemoryConversationRepository
 from app.infrastructure.persistence.memory.jobs import InMemoryJobQueue
 from app.infrastructure.persistence.memory.pdf import InMemoryPdfRepository
@@ -83,22 +77,10 @@ def _isolate_test_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-async def _reset_pdf_repository_factory() -> None:
+async def _reset_infra_singletons() -> None:
     await reset_database_state()
-    await reset_pdf_repository_state()
-    await reset_job_queue_state()
-    await reset_user_repository_state()
-    await reset_session_repository_state()
-    await reset_conversation_repository_state()
-    reset_file_storage_state()
     yield
     await reset_database_state()
-    await reset_pdf_repository_state()
-    await reset_job_queue_state()
-    await reset_user_repository_state()
-    await reset_session_repository_state()
-    await reset_conversation_repository_state()
-    reset_file_storage_state()
 
 
 @pytest.fixture

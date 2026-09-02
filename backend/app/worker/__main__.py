@@ -9,9 +9,9 @@ import socket
 from app.classification.service import PdfClassificationService
 from app.config.settings import get_settings
 from app.core.logging import configure_logging
-from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
-from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
-from app.infrastructure.factories.storage import create_file_storage, reset_file_storage_state
+from app.infrastructure.factories.jobs import create_job_queue
+from app.infrastructure.factories.pdf import create_pdf_repository
+from app.infrastructure.factories.storage import create_file_storage
 from app.infrastructure.persistence.sql.lifecycle import close_database, init_database
 from app.parsing.factory import create_document_parser
 from app.worker.pdf_pipeline import PdfProcessingPipeline
@@ -87,9 +87,8 @@ async def run_worker() -> None:
                 )
                 await job_queue.fail_or_retry(job.id, error=str(exc))
     finally:
-        await reset_job_queue_state()
-        await reset_pdf_repository_state()
-        reset_file_storage_state()
+        parser.close()
+        storage.close()
         await close_database()
         logger.info("PDF worker stopped id=%s", worker_id)
 

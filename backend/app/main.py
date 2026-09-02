@@ -22,18 +22,8 @@ from app.infrastructure.factories.chat_checkpointer import (
     close_chat_checkpointer,
     init_chat_checkpointer,
 )
-from app.infrastructure.factories.conversation import (
-    create_conversation_repository,
-    reset_conversation_repository_state,
-)
-from app.infrastructure.factories.jobs import create_job_queue, reset_job_queue_state
-from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
-from app.infrastructure.factories.sessions import (
-    create_session_repository,
-    reset_session_repository_state,
-)
-from app.infrastructure.factories.storage import reset_file_storage_state
-from app.infrastructure.factories.users import create_user_repository, reset_user_repository_state
+from app.infrastructure.factories.chat_model import close_chat_model, create_chat_model
+from app.infrastructure.factories.storage import create_file_storage
 from app.infrastructure.persistence.sql.lifecycle import (
     close_database,
     get_database,
@@ -69,11 +59,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
 
     instrument_sqlalchemy_engine(get_database().engine)
 
-    create_pdf_repository()
-    create_job_queue()
-    create_user_repository()
-    create_session_repository()
-    create_conversation_repository()
+    fastapi_app.state.file_storage = create_file_storage(settings)
+    fastapi_app.state.chat_model = create_chat_model(settings)
 
     await init_chat_checkpointer(settings)
 
@@ -84,12 +71,8 @@ async def lifespan(fastapi_app: FastAPI) -> AsyncIterator[None]:
     tracing_task.cancel()
     with suppress(asyncio.CancelledError):
         await tracing_task
-    await reset_session_repository_state()
-    await reset_user_repository_state()
-    await reset_job_queue_state()
-    await reset_pdf_repository_state()
-    await reset_conversation_repository_state()
-    reset_file_storage_state()
+    fastapi_app.state.file_storage.close()
+    await close_chat_model(fastapi_app.state.chat_model)
     await close_chat_checkpointer()
     await close_database()
 

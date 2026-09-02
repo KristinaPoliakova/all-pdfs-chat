@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Depends
+from fastapi import Depends, Request
 
 from app.agent.memory import LangGraphConversationMemory
 from app.agent.service import LangGraphChatService
@@ -15,15 +15,13 @@ from app.application.services.pdf_management import PdfManagementService
 from app.application.services.pdf_upload import PdfUploadService
 from app.config.settings import Settings, get_settings
 from app.infrastructure.factories.chat_checkpointer import get_chat_checkpointer
-from app.infrastructure.factories.chat_model import create_chat_model
 from app.infrastructure.factories.conversation import create_conversation_repository
 from app.infrastructure.factories.jobs import create_job_queue
 from app.infrastructure.factories.pdf import create_pdf_repository
-from app.infrastructure.factories.storage import create_file_storage
 
 
-def get_file_storage() -> FileStorage:
-    return create_file_storage()
+def get_file_storage(request: Request) -> FileStorage:
+    return request.app.state.file_storage
 
 
 def get_pdf_repository() -> PdfRepository:
@@ -49,12 +47,13 @@ def get_pdf_upload_service(
 
 
 def get_chat_service(
+    request: Request,
     pdf_repository: PdfRepository = Depends(get_pdf_repository),
     settings: Settings = Depends(get_settings),
 ) -> ChatService:
     return LangGraphChatService(
         repository=pdf_repository,
-        model=create_chat_model(settings),
+        model=request.app.state.chat_model,
         checkpointer=get_chat_checkpointer(),
         settings=settings,
     )

@@ -5,22 +5,9 @@ from app.config.settings import Settings, get_settings
 from app.infrastructure.storage.azure import AzureBlobStorage
 from app.infrastructure.storage.local import LocalFileStorage
 
-_storage: FileStorage | None = None
-
 
 def create_file_storage(settings: Settings | None = None) -> FileStorage:
-    if settings is not None:
-        return _build_file_storage(settings)
-
-    global _storage
-    if _storage is None:
-        _storage = _build_file_storage(get_settings())
-    return _storage
-
-
-def reset_file_storage_state() -> None:
-    global _storage
-    _storage = None
+    return _build_file_storage(settings or get_settings())
 
 
 def _build_file_storage(cfg: Settings) -> FileStorage:

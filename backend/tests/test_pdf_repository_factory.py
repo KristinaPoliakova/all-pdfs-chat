@@ -2,18 +2,11 @@ from unittest.mock import patch
 
 import pytest
 from app.config.settings import DEFAULT_DEV_DATABASE_URL, Settings
-from app.infrastructure.factories.pdf import create_pdf_repository, reset_pdf_repository_state
+from app.infrastructure.factories.pdf import create_pdf_repository
 from app.infrastructure.persistence.sql.lifecycle import get_database
 from app.infrastructure.persistence.sql.repositories.pdf import SqlPdfRepository
 
 _POSTGRES_URL = "postgresql+asyncpg://app:secret@127.0.0.1:5432/all_pdfs_chat"
-
-
-@pytest.fixture(autouse=True)
-async def _reset_factory() -> None:
-    await reset_pdf_repository_state()
-    yield
-    await reset_pdf_repository_state()
 
 
 @pytest.mark.asyncio
@@ -63,10 +56,9 @@ def test_settings_default_dev_database_url_is_postgresql(
 
 
 @pytest.mark.asyncio
-async def test_factory_returns_cached_singleton() -> None:
+async def test_factory_builds_sql_pdf_repository() -> None:
     with patch("app.infrastructure.persistence.sql.lifecycle.get_settings") as get_settings:
         get_settings.return_value = Settings(app_env="dev", _env_file=None)
-        first = create_pdf_repository()
-        second = create_pdf_repository()
+        store = create_pdf_repository()
 
-    assert first is second
+    assert isinstance(store, SqlPdfRepository)
